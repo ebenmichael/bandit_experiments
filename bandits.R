@@ -153,3 +153,34 @@ exponential_gap <- function(bandit, delta) {
     }
     return(idxs[1])
 }
+
+
+#' Perform the successive elimnination algorithm
+#'
+#' @param bandit The multi-armed bandit object
+#' @param delta The confidence that we have the right mean
+#' @param n_min The minimum number of samples we can take
+#'
+#' @return index of the chosen best arm
+successive_elimination <- function(bandit, delta, n_min) {
+
+    accepted = bandit
+    n_arms <- length(bandit)
+    t <- n_min
+    idxs <- 1:n_arms
+    emp_avgs <- integer(n_arms)
+    while(length(accepted) > 1) {
+        # pull n_min times and update current averages
+        emp_avgs <- (rowSums(pull_arms(accepted, n_min)) +
+                     (t- n_min) * emp_avgs) / t
+        max_avg <- max(emp_avgs)
+        bound <- sqrt(log(pi^2 / 3 * n_arms * t^2 / delta) / t)
+        # throw out anything we can confidently reject
+        keep_bool <- (max_avg - emp_avgs) < 2 * bound
+        accepted <- bandit(accepted[keep_bool])
+        idxs <- idxs[keep_bool]
+        emp_avgs <- emp_avgs[keep_bool]
+        t <- t + n_min
+    }
+    return(idxs[1])
+}
