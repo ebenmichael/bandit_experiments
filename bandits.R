@@ -44,8 +44,8 @@ pull_arm <- function(obj, ...) {
 }
 
 ## Method to pull arm from a bandit
-pull_arm.bandit <- function(bandit, i, n) {
-    return(sample(bandit[[i]], n))
+pull_arm.bandit <- function(band, i, n) {
+    return(sample(band[[i]], n))
 }
 
 ## S3 generic method
@@ -199,7 +199,7 @@ exponential_gap <- function(bandit, delta) {
 #' @return index of the chosen best arm
 successive_elimination <- function(bandit, delta, n_min) {
 
-    accepted = bandit
+    accepted <- bandit
     n_arms <- length(bandit)
     t <- n_min
     idxs <- 1:n_arms
@@ -221,4 +221,58 @@ successive_elimination <- function(bandit, delta, n_min) {
 }
 
 
+#' Perform the lil'LUCB algorithm (Jamieson review paper)
+#'
+#' @param bandit The multi-armed bandit object
+#' @param delta The confidence that we have the right mean
+#' @param epsilon The LIL parameters
+#' @param n_min The minimum number of samples we can take
+#'
+#' @return index of the chosen best arm
+lil_lucb <- function(bandit, delta, epsilon, n_min) {
+    accepted <- bandit
+    n_arms <- length(bandit)
+    t <- n_min
+    idxs <- 1:n_arms
+    # sample every arm n_min times to initialize the averages
+    emp_avgs <- rowMeans(pull_arms(bandit, n_min))
+    # keep track of how many times an arm has been sampled
+    total_pulls <- rep(n_min, n_arms)
+    # book keeping for the which arms are pulled when and how much
+    arm_pull_mat <- cbind(idxs, total_pulls)
+    # start pulling arms sequentially
+    finished <- FALSE
+    while(! finished) {
+        # get the current best
+        h_t <- which.max(emp_avgs)
+
+
+        bound <- (1 + sqrt(epsilon)) * sqrt((1+epsilon) *
+                                            log( log((1 + epsilon) *
+                                                     total_pulls + 2)
+                                                / delta/n) /
+                                            total_pulls * 2)
+        avg_plus_bound <- emp_avgs + bound
+        # set the value at h_t to -infinity so we don't choose is
+        avg_plus_bound[h_t] <- -Inf
+        l_t <- which.max(avg_plus_bound)      
+        # the stopping condition
+        finished <- emp_avgs[h_t] - bound[h_t] > emp_avgs[l_t] + bound[l_t]
+
+        # sample from the arms defined by h_t and l_t
+        emp_avgs[h_t] <- (sum(pull_arm(bandit, h_t, n_min)) +
+                          emp_avgs[h_t] *
+                          total_pulls[h_t]) / (total_pulls[h_t] + n_min)
+        emp_avgs[l_t] <- (sum(pull_arm(bandit, l_t, n_min)) +
+                          emp_avgs[l_t] *
+                          total_pulls[l_t]) / (total_pulls[l_t] + n_min)
+        # keep track of the pulls
+        total_pulls[h_t] <- total_pulls[h_t] + n_min
+        total_pulls[l_t] <- total_pulls[l_t] + n_min
+        arm_pull_mat <- rbind(arm_pull_mat,
+                              cbind(c(h_t, l_t), c(n_min, n_min)))
+    }
+    output <- list(best_idx=h_t, arm_pull_mat=arm_pull_mat)
+    return(output)
+}
 
