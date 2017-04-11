@@ -77,19 +77,25 @@ pull_arms.normal_bandit <- function(bandit, n_samples) {
     return(samples)
 }
 
-## Naive PAC(epsilon, delta) algo (Even-Dar 2006)
-## Need to update this for general sub-Gaussian RVs
+#' Run the naive PAC(epsilon, delta) algo (Even-Dar 2006)
+#'
+#' @param bandit The bandit object
+#' @param epsilon How close we are to the best with high probability
+#' @param delta The confidence
+#'
+#' @return The chosen arm and a matrix keeping track of each arm
+#'         and how much it was pulled
 naive_best <- function(bandit, epsilon, delta)  {
     # pull each arm the same number of times
     n_arms <- length(bandit)
     n_pulls <- ceiling((4 / epsilon ^ 2) * log( 2 * n_arms / delta))
-    print(n_pulls)
-    sample_avgs <- integer(n_arms)
-    for(i in 1:n_arms) {
-        sample_avgs[i] <- mean(pull_arm(bandit, i, n_pulls))
-    }
+    emp_avgs <- rowMeans(pull_arms(bandit, n_pulls))
+    # keep track of how many times each arm was sampled
+    arm_pull_mat <- cbind(seq(1,n_arms), rep(n_pulls, n_arms))
     # return arm with best sample average
-    return(which.max(sample_avgs))
+    output <- list(best_idx = which.max(emp_avgs),
+                   arm_pull_mat = arm_pull_mat)
+    return(output)
 }
 
 ## Median Eliminiation Algorithm (Even-Dar 2006)
@@ -99,28 +105,38 @@ median_elimination <- function(bandit, epsilon, delta) {
     eps_l <- epsilon / 4
     delta_l <- delta / 2
     l <- 1
+    n_arms <- length(bandit)
     # keep track of which arms remain
-    idxs <- 1:length(bandit)
+    idxs <- 1:n_arms
+    emp_avgs <- integer(n_arms)
+    total_pulls <- 0
+    # start book-keeping which arms are pulled how many times
+    arm_pull_mat <- matrix(ncol = 2)
+
     while(length(accepted) > 1) {
         # number of times to sample 
         n_pulls <- ceiling(1 / (eps_l / 2) ^ 2 * log(3 / delta_l))
-        print("----------")
-        print(n_pulls)
-        print(l)
+        total_pulls <- n_pulls + total_pulls
         
         #sample the arms
         emp_avgs <- rowMeans(pull_arms(accepted, n_pulls))
 
+        # book-keeping, the arms pulled and how much they were pulled
+        arm_pull_mat <- rbind(arm_pull_mat,
+                              cbind(idxs, rep(n_pulls, length(idxs))))
         # get the median     
         med <- median(emp_avgs)
         ## keep everything above the median
         accepted <- bandit(accepted[emp_avgs >= med])
         idxs <- idxs[emp_avgs >= med]
+        # update values
         eps_l <- 3 * eps_l / 4
         delta_l < delta_l / 2
         l <- l + 1
     }
-    return(idxs[1])
+    output <- list(best_idx = idxs[1],
+                   arm_pull_mat = arm_pull_mat[-1,])
+    return(output)
 }
 
 
@@ -130,32 +146,51 @@ exponential_gap <- function(bandit, delta) {
     # initialize set of accepted arms to be all of them    
     accepted <- bandit
     r <- 1
-    idxs <- 1:length(bandit)
+    n_arms <- length(bandit)
+    idxs <- 1:n_arms
+    emp_avgs <- integer(n_arms)
+    total_pulls <- 0
+    # start book-keeping which arms are pulled how many times
+    arm_pull_mat <- matrix(ncol = 2)
+    
     while(length(accepted) > 1) {
         eps_r <- 2^(-r) / 4
         delta_r <- delta / (50 * r^3)
-        # sample each arm 
+        # number of times to sample each arm 
         n_pulls <- ceiling((2 / eps_r^2) * log (2 / delta_r))
-        print(sprintf("NUMBER OF PULLS PER ARM: %f", n_pulls))
+        total_pulls <- n_pulls + total_pulls
+        
+        # book-keeping, the arms pulled and how much they were pulled
+        arm_pull_mat <- rbind(arm_pull_mat,
+                              cbind(idxs, rep(n_pulls, length(idxs))))
+        
         #sample the arms
-        emp_avgs <- rowMeans(pull_arms(accepted, n_pulls))
+        emp_avgs <- (rowSums(pull_arms(accepted, n_pulls)) +
+                     (total_pulls - n_pulls) * emp_avgs) / total_pulls
+
         # call median_elimination to find an arm within eps_r/2
         # with prob delta_r
         print("STARTING MEDIAN ELIMINATION")
-        med_elim_idx <- median_elimination(accepted, eps_r / 2,
-                                           delta_r / 2)
+        me_output <- median_elimination(accepted, eps_r / 2,
+                                        delta_r / 2)
+        med_elim_idx <- me_output$best_idx
+        # more book-keeping on which arms are pulled how many times
+        arm_pull_mat <- rbind(arm_pull_mat, me_output$arm_pull_mat)
         print("FINISHED MEDIAN ELIMINATION")
         # throw out everything more than eps_r away
         keep_bool <- emp_avgs >= emp_avgs[med_elim_idx] - eps_r
         accepted <- bandit(accepted[keep_bool])
         idxs <- idxs[keep_bool]
+        emp_avgs <- emp_avgs[keep_bool]
         r <= r + 1
     }
-    return(idxs[1])
+    output <- list(best_idx = idxs[1],
+                   arm_pull_mat = arm_pull_mat[-1,])
+    return(output)
 }
 
 
-#' Perform the successive elimnination algorithm
+#' Perform the successive elimnination algorithm (Even-Dar 2006)
 #'
 #' @param bandit The multi-armed bandit object
 #' @param delta The confidence that we have the right mean
@@ -184,3 +219,6 @@ successive_elimination <- function(bandit, delta, n_min) {
     }
     return(idxs[1])
 }
+
+
+
