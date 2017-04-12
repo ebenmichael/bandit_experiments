@@ -276,6 +276,7 @@ lil_lucb <- function(bandit, delta, epsilon, n_min) {
     j <- n_arms + 1
     # start pulling arms sequentially
     finished <- FALSE
+
     while(! finished) {
         # get the current best
         h_t <- which.max(emp_avgs)
@@ -294,10 +295,14 @@ lil_lucb <- function(bandit, delta, epsilon, n_min) {
         finished <- emp_avgs[h_t] - bound[h_t] > emp_avgs[l_t] + bound[l_t]
 
         # sample from the arms defined by h_t and l_t
-        emp_avgs[h_t] <- (sum(pull_arm(bandit, h_t, n_min)) +
+
+        h_t_pulls <- pull_arm(bandit, h_t, n_min)
+        l_t_pulls <- pull_arm(bandit, l_t, n_min)
+
+        emp_avgs[h_t] <- (sum(h_t_pulls) +
                           emp_avgs[h_t] *
                           total_pulls[h_t]) / (total_pulls[h_t] + n_min)
-        emp_avgs[l_t] <- (sum(pull_arm(bandit, l_t, n_min)) +
+        emp_avgs[l_t] <- (sum(l_t_pulls) +
                           emp_avgs[l_t] *
                           total_pulls[l_t]) / (total_pulls[l_t] + n_min)
         # keep track of the pulls
