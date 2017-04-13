@@ -223,6 +223,16 @@ successive_elimination <- function(bandit, delta, n_min) {
     n_samples <- rep(NA, 1000)
     j <- 1
     while(length(accepted) > 1) {
+        # book keeping
+        if(j + length(idxs) > length(all_idxs)) {
+            all_idxs <- c(all_idxs, rep(NA, length(all_idxs) * 2))
+            n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
+        }
+        all_idxs[j:(j + length(idxs) - 1)] <- idxs
+        n_samples[j:(j + length(idxs) - 1)] <-
+            rep(n_min, length(idxs))
+        j <- j + length(idxs)
+        
         # pull n_min times and update current averages
         emp_avgs <- (rowSums(pull_arms(accepted, n_min)) +
                      (t- n_min) * emp_avgs) / t
@@ -234,15 +244,6 @@ successive_elimination <- function(bandit, delta, n_min) {
         idxs <- idxs[keep_bool]
         emp_avgs <- emp_avgs[keep_bool]
         t <- t + n_min
-        # book keeping
-        if(j + length(idxs) > length(all_idxs)) {
-            all_idxs <- c(all_idxs, rep(NA, length(all_idxs) * 2))
-            n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
-        }
-        all_idxs[j:(j + length(idxs) - 1)] <- idxs
-        n_samples[j:(j + length(idxs) - 1)] <-
-            rep(n_min, length(idxs))
-        j <- j + length(idxs)
     }
     
     output <- list(best_idx = idxs[1],
@@ -417,6 +418,8 @@ lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
 #' @param num_top The number of top arms we want to find
 #' @param batch_size The batch size
 #' @param pull_limit The repeated pull limit
+#' @return The chosen arms and a matrix keeping track of each arm
+#'         and how much it was pulled
 batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
 
     ## Define a helper function round_robin
@@ -515,4 +518,55 @@ batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
     return(output)
     
     
+}
+
+
+#' Perform sequential halving (Karim 2013)
+#'
+#' @param bandit The bandit object
+#' @param budget The total amount of pulls we can do
+#' @return The chosen arm and a matrix keeping track of each arm
+#'         and how much it was pulled
+sequential_halving <- function(bandit, budget) {
+    n_arms <- length(bandit)
+    remaining <- bandit
+    idxs <- 1:n_arms
+    emp_avgs <- integer(n_arms)
+    # book keeping
+    all_idxs <- rep(NA, 1000)
+    n_samples <- rep(NA, 1000)
+    j <- 1
+
+    for(r in 1:(ceiling(log2(n_arms))-1)) {
+
+        n_pulls <- floor(budget / (length(remaining) * ceiling(log2(n_arms))))
+        # book keeping
+        if(j + length(idxs) > length(all_idxs)) {
+            all_idxs <- c(all_idxs, rep(NA, length(all_idxs) * 2))
+            n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
+        }
+
+        all_idxs[j:(j + length(idxs) - 1)] <- idxs
+        n_samples[j:(j + length(idxs) - 1)] <-
+            rep(n_pulls, length(idxs))
+        j <- j + length(idxs)        
+        # sample from the arms
+        emp_avgs <- rowMeans(pull_arms(remaining, n_pulls))
+
+        # keep the top half
+        keep_bool <- emp_avgs > median(emp_avgs)
+        idxs <- idxs[keep_bool]
+        remaining <- bandit(remaining[keep_bool])
+
+        
+    }
+    if(length(remaining) == 2) {
+        rand_idx <- rbinom(1,1,.5)
+    } else {
+        rand_idx <- 1
+    }
+    output <- list(best_idx = idxs[rand_idx],
+                   arm_pull_mat = cbind(all_idxs[!is.na(all_idxs)],
+                                        n_samples[!is.na(n_samples)]))
+    return(output)
 }
