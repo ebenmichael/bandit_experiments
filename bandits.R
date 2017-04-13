@@ -407,3 +407,112 @@ lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
                                         n_samples[!is.na(n_samples)]))
     return(output)
 }
+
+
+
+#' Perform the BatchRacing procedure (Jun 2016)
+#'
+#' @param bandit The bandit object
+#' @param delta The confidence
+#' @param num_top The number of top arms we want to find
+#' @param batch_size The batch size
+#' @param pull_limit The repeated pull limit
+batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
+
+    ## Define a helper function round_robin
+    round_robin <- function(arms, total_pulls, b, r) {
+
+        n_arms <- length(arms)
+        num_new_pulls <- integer(n_arms)
+        # get the number of pulls to make
+        for(i in 1:min(b, n_arms * r)) {
+            j <- which.min(total_pulls + num_new_pulls)
+            num_new_pulls[j] <- num_new_pulls[j] + 1
+        }
+        return(num_new_pulls)
+    }
+
+    # initialize the sets used in the algorithm
+    n_arms <- length(bandit)
+    idxs <- 1:n_arms
+    remaining <- idxs
+    accepted <- c()
+    rejected <- c()
+    total_pulls <- integer(n_arms)
+    emp_avgs <- integer(n_arms)
+    # book keeping for number of times an arm was pulled
+    all_idxs <- rep(NA, 1000)
+    n_samples <- rep(NA, 1000)
+    j <- 1
+    
+    while(length(remaining) >= 1) {
+        
+        # use round_robin to see how many pulls to do 
+        new_pulls <- round_robin(remaining, total_pulls,
+                                 batch_size, pull_limit)
+
+        # book keeping
+        if(j  + length(new_pulls[new_pulls!=0])> length(all_idxs)) {
+
+            all_idxs <- c(all_idxs, rep(NA, length(all_idxs) * 2))
+            n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
+        }
+
+
+        #print(total_pulls)        
+        for(k in 1:length(new_pulls)) {
+            if(new_pulls[k] != 0) {
+                arm_k <- remaining[k]
+                arm_k_pulls <- pull_arm(bandit, arm_k, new_pulls[k])
+                                        # update empirical average
+                emp_avgs[k] <- ( sum(arm_k_pulls) +
+                                 emp_avgs[k] * total_pulls[k]) /
+                    (new_pulls[k] + total_pulls[k])
+                total_pulls[k] <- total_pulls[k] + new_pulls[k]
+
+                # keep track of how much each arm was pulled
+                all_idxs[j] <- arm_k
+                n_samples[j] <- new_pulls[k]
+                j <- j + 1
+            }
+        }
+
+        # get upper and lower confidence bounds from the LIL
+        non_zero_pulls <- total_pulls[total_pulls!=0]
+        # if we didn't pull an arm yet, set bound to infinity
+        bound <- rep(Inf, length(emp_avgs))
+        bound[total_pulls != 0] <- sqrt(4 * log(log2(2 * non_zero_pulls) /
+                              (sqrt(delta / (6 * n_arms))))
+                      / non_zero_pulls)
+        upper <- emp_avgs + bound
+        lower <- emp_avgs - bound
+
+        # accept and reject those for which we can do it confidently
+        k_t <- num_top - length(accepted)
+        accept_bool <- rep(FALSE, length(remaining))
+        reject_bool <- rep(FALSE, length(remaining))
+        for(i in 1:length(remaining)) {
+            num_greater <- sum(lower[i] > upper)
+            accept_bool[i] <- num_greater >= length(remaining) - k_t
+            num_less <- sum(upper[i] < lower)
+            reject_bool[i] <- num_less >= k_t
+        }
+        
+        accepted <- c(accepted, remaining[accept_bool])
+        rejected <- c(rejected, remaining[reject_bool])
+        remain_bool <- !(accept_bool | reject_bool)
+        remaining <- remaining[remain_bool]
+
+        emp_avgs <- emp_avgs[remain_bool]
+        total_pulls <- total_pulls[remain_bool]
+
+    }
+
+
+    output <- list(best_idxs=accepted,
+                   arm_pull_mat = cbind(all_idxs[!is.na(all_idxs)],
+                                        n_samples[!is.na(n_samples)]))
+    return(output)
+    
+    
+}
