@@ -418,9 +418,10 @@ lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
 #' @param num_top The number of top arms we want to find
 #' @param batch_size The batch size
 #' @param pull_limit The repeated pull limit
+#' @param max_pulls Optional maximum number of pulls to make
 #' @return The chosen arms and a matrix keeping track of each arm
 #'         and how much it was pulled
-batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
+batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit, max_pulls=Inf) {
 
     ## Define a helper function round_robin
     round_robin <- function(arms, total_pulls, b, r) {
@@ -448,7 +449,7 @@ batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
     n_samples <- rep(NA, 1000)
     j <- 1
     
-    while(length(remaining) >= 1) {
+    while(length(remaining) >= 1 & sum(total_pulls) < max_pulls) {
         
         # use round_robin to see how many pulls to do 
         new_pulls <- round_robin(remaining, total_pulls,
@@ -500,6 +501,9 @@ batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
             num_less <- sum(upper[i] < lower)
             reject_bool[i] <- num_less >= k_t
         }
+
+        # keep the current best
+        curr_best <- remaining[which.max(emp_avgs)]
         
         accepted <- c(accepted, remaining[accept_bool])
         rejected <- c(rejected, remaining[reject_bool])
@@ -513,6 +517,7 @@ batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit) {
 
 
     output <- list(best_idxs=accepted,
+                   best_idx=curr_best,
                    arm_pull_mat = cbind(all_idxs[!is.na(all_idxs)],
                                         n_samples[!is.na(n_samples)]))
     return(output)
