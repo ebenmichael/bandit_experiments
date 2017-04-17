@@ -1,5 +1,7 @@
 source("bandits.R")
-library(gaussianProcess)
+library(Rsolnp)
+#library(gaussianProcess)
+
 
 #' Create a bandit object given a function, values, and a noise model
 #'
@@ -82,25 +84,27 @@ expected_improvement <- function(gp, value, max_mean) {
 #' @param n_samples The number of times to sample each point
 #' @param n_values The number of values to try
 #' @param bounds A d x 2 matrix of box constraints for each variable
-bayes_opt <- function(objective, noise_model,n_samples, n_values,  bounds) {
+#' @param n_init The number of initial samples to feed the GP, defaults to 5
+bayes_opt <- function(objective, noise_model,n_samples, n_values,
+                      bounds, n_init=10) {
 
 
     # get starting values randomly
-    values <- apply(bounds, 1, function(x) runif(5,x[1],x[2]))
-    values <- rbind(values, matrix(NA, nrow=(n_values - 5), ncol=dim(values)[2]))
+    values <- apply(bounds, 1, function(x) runif(n_init,x[1],x[2]))
+    values <- rbind(values, matrix(NA, nrow=(n_values - n_init), ncol=dim(values)[2]))
     targets <- apply(values, 1, function(x) mean(sample_function(objective,
                                                             noise_model,
                                                             x, n_samples)))
 
-    targets <- c(targets, rep(NA, n_values - 5))
+    targets <- c(targets, rep(NA, n_values - n_init))
     arg_max_mu <- as.vector(apply(bounds, 1, function(x) runif(1,x[1],x[2])))
     next_x <- as.vector(apply(bounds, 1, function(x) runif(1,x[1],x[2])))
-    for(i in 6:n_values) {
-        print(values[1:(i-1),])
+    for(i in (1 + n_init):n_values) {
+        print(i)
         # fit the gp
         gp_fit <- FALSE
         times_tried <- 1
-        #while(! gp_fit) {
+        while(! gp_fit) {
         print("fitting gp")
         tryCatch({
             gp <<- gaussianProcess(values[1:(i-1),],
@@ -108,16 +112,16 @@ bayes_opt <- function(objective, noise_model,n_samples, n_values,  bounds) {
                                    noise.var=1 / (n_samples * 4))
             gp_fit <- TRUE
                 #return(gp_tmp)
-        }, error = function(e){ return(list(values[1:(i-1),], targets[1:(i-1)]))
-                #times_tried <<- times_tried + 1
-                #print(times_tried)
-                #message(paste("Tried", as.character(times_tried), "times"))
-                #if(times_tried > 10) {
-                #    return(NA)
-                                        #}
+        }, error = function(e) {
+            times_tried <<- times_tried + 1
+            print(times_tried)
+            if(times_tried > 10) {
+                stop("Tried to fit GP an dfailed 10 times, giving up.")
+            }
             
         })
-        #}
+        }
+        #return(gp)
         # compute the maximum of the mean function
         print("Finding max of mean function")
         arg_max_mu <- rgenoud::genoud(function(x) predict(gp, t(x))$mean,
@@ -125,9 +129,17 @@ bayes_opt <- function(objective, noise_model,n_samples, n_values,  bounds) {
                                       max=TRUE,
                                       Domains=bounds,
                                       boundary.enforcement = 1,
-                                      print.level=1,
-                                      gradient.check=FALSE)$par
-        print(arg_max_mu)
+                                      print.level=0,
+                                      gradient.check=FALSE,
+                                      pop.size=10)$par
+        #arg_max_mu <- gosolnp(fun=function(x) -predict(gp, t(x))$mean,
+        #                      LB=bounds[,1],
+        #                      UB=bounds[,2],
+        #                      n.sim = 10,
+        #                      n.restarts = 10)$pars
+        #arg_max_mu <- random_restart_max(function(x) predict(gp, t(x))$mean,
+        #                                 bounds, 10)
+        #print(arg_max_mu)
         #arg_max_mu <- optim(as.vector(apply(bounds, 1,
         #                                    function(x) runif(1,x[1],x[2]))),
         #                    function(x) predict(gp,t(x))$mean)$par
@@ -135,22 +147,32 @@ bayes_opt <- function(objective, noise_model,n_samples, n_values,  bounds) {
         #print(max_mu)
         # optimize expected improvement
         print("Optimizing EI")
-       next_x <- t(rgenoud::genoud(function(x) expected_improvement(gp,
-                                                                   t(x),
-                                                                   max_mu),
-                                  dim(values)[2], max=TRUE,
-                                  Domains=bounds,
-                                  boundary.enforcement = 1,
-                                  gradient.check=FALSE,
-                                  print.level=1)$par)
+        next_x <- t(rgenoud::genoud(function(x) expected_improvement(gp,
+                                                                    t(x),
+                                                                    max_mu),
+                                   dim(values)[2], max=TRUE,
+                                   Domains=bounds,
+                                   boundary.enforcement = 1,
+                                   gradient.check=FALSE,
+                                   print.level=0,
+                                   pop.size=100)$par)
         #next_x <- t(optim(as.vector(apply(bounds, 1,
         #                                  function(x) runif(1,x[1],x[2]))),
         #                  function(x) expected_improvement(gp,
         #                                                   t(x),
         #                                                   max_mu))$par)
+        #next_x <- t(gosolnp(fun=function(x) -expected_improvement(gp,
+        #                                                         t(x),
+        #                                                         max_mu),
+        #                    LB= bounds[,1],
+        #                    UB=bounds[,2],
+        #                    n.sim=10,
+        #                    n.restarts=10)$pars)
+        #print(next_x)
         # sample from next_x and fit
         values[i,] <- next_x
-        targets[i] <- sample_function(objective, noise_model, next_x, n_samples)
+        targets[i] <- mean(sample_function(objective,
+                                           noise_model, next_x, n_samples))
     }
     return(next_x)
 }

@@ -259,10 +259,11 @@ successive_elimination <- function(bandit, delta, n_min) {
 #' @param delta The confidence that we have the right mean
 #' @param epsilon The LIL parameters
 #' @param n_min The minimum number of samples we can take
+#' @param max_pulls The maximum number of times we can pull (optional)
 #'
 #' @return The chosen arm and a matrix keeping track of each arm
 #'         and how much it was pulled
-lil_lucb <- function(bandit, delta, epsilon, n_min) {
+lil_lucb <- function(bandit, delta, epsilon, n_min, max_pulls=Inf) {
     accepted <- bandit
     n_arms <- length(bandit)
     t <- n_min
@@ -278,7 +279,7 @@ lil_lucb <- function(bandit, delta, epsilon, n_min) {
     # start pulling arms sequentially
     finished <- FALSE
 
-    while(! finished) {
+    while(! finished && sum(total_pulls) < max_pulls) {
         # get the current best
         h_t <- which.max(emp_avgs)
 
@@ -335,11 +336,12 @@ lil_lucb <- function(bandit, delta, epsilon, n_min) {
 #' @param alpha Multiple of total times any arm is sampled in order to stop
 #' @param beta Hyperparameter for the algorithm
 #' @param n_min The minimum number of samples we can take
+#' @param max_pulls The maximum number of times we can pull (optional)
 #'
 #' @return The chosen arm and a matrix keeping track of each arm
 #'         and how much it was pulled
 
-lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
+lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min, max_pulls=Inf) {
     # set delta to account for the LIL (and divide by 2 for the LS stopping criterion)
     delta <- (conf * epsilon / (5 * (2 + epsilon))) ^ (1 / (1 + epsilon)) / 2
     accepted <- bandit
@@ -356,7 +358,7 @@ lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
     j <- n_arms + 1
     # start pulling arms sequentially
     finished <- FALSE
-    while(! finished) {
+    while(! finished && sum(total_pulls) < max_pulls ) {
         # count the number of times every arm but a certain arm was pulled
         sum_pulls <- rep(sum(total_pulls), n_arms) - total_pulls
         # stop if any arm has been pulled more than alpha percent of the time        
@@ -418,10 +420,11 @@ lil_ucb <- function(bandit, conf, epsilon, alpha, beta, n_min) {
 #' @param num_top The number of top arms we want to find
 #' @param batch_size The batch size
 #' @param pull_limit The repeated pull limit
-#' @param max_pulls Optional maximum number of pulls to make
+#' @param max_batches Optional maximum number of batches to make
 #' @return The chosen arms and a matrix keeping track of each arm
 #'         and how much it was pulled
-batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit, max_pulls=Inf) {
+batch_racing <- function(bandit, delta, num_top, batch_size,
+                         pull_limit, max_batches=Inf) {
 
     ## Define a helper function round_robin
     round_robin <- function(arms, total_pulls, b, r) {
@@ -448,13 +451,13 @@ batch_racing <- function(bandit, delta, num_top, batch_size, pull_limit, max_pul
     all_idxs <- rep(NA, 1000)
     n_samples <- rep(NA, 1000)
     j <- 1
-    
-    while(length(remaining) >= 1 & sum(total_pulls) < max_pulls) {
+    n_batches <- 0
+    while(length(remaining) >= 1 & n_batches <= max_batches) {
         
         # use round_robin to see how many pulls to do 
         new_pulls <- round_robin(remaining, total_pulls,
                                  batch_size, pull_limit)
-
+        n_batches <- n_batches + 1
         # book keeping
         if(j  + length(new_pulls[new_pulls!=0])> length(all_idxs)) {
 
