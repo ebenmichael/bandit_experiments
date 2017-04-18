@@ -578,3 +578,4 @@ sequential_halving <- function(bandit, budget) {
                                         n_samples[!is.na(n_samples)]))
     return(output)
 }
+

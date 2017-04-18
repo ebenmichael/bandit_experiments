@@ -1,7 +1,15 @@
 source("bandits.R")
 library(Rsolnp)
-#library(gaussianProcess)
+library(gaussianProcess)
 
+#' Uniformly sample points in a box
+#'
+#' @param n_samples Number of points to sample in that box
+#' @param bounds A d x 2 matrix of box constraints for each variable
+box_runif <- function(n_samples, bounds) {
+    samples <- apply(bounds, 1, function(x) runif(n_samples, x[1], x[2]))
+    return(matrix(samples, ncol=dim(bounds)[1]))
+}
 
 #' Create a bandit object given a function, values, and a noise model
 #'
@@ -29,6 +37,9 @@ create_bandit <- function(objective, noise_model, values) {
 #' @param n_values The number of values to try
 #' @param limit The confidence or budget for the best arm selection algorithms
 #' @param mab_algo The best arm selection algorithm to use
+#'
+#' @return The best parameter setting found and the number of times each
+#'         setting was tried
 bandit_opt <- function(objective, noise_model, get_values, n_values, limit,
                            mab_algo, ...) {
     # get the candidate values
@@ -42,7 +53,77 @@ bandit_opt <- function(objective, noise_model, get_values, n_values, limit,
                 #output$arm_pull_mat))
 }
 
-
+#' Perform the Hyperband routine (Li 2017)
+#' @param objective The objective function to minimize (maximize)
+#' @param noise_model The type of noise model
+#' @param get_values A function to propose a set of candidate values
+#' @param limit The maximum amount of pulls for any parameter setting
+#' @param eta The proportion of configurations discarded at each round
+#'
+#' @return The best parameter setting found and the number of times each
+#'         setting was tried
+hyperband <- function(objective, noise_model, get_values, limit, eta) {
+    s_max <-floor(logb(limit, eta))
+    B <- (s_max +1) * limit
+    tmp_val <- get_values(1)
+    ## book keeping
+    all_values <- matrix(NA, ncol=dim(tmp_val)[2], nrow=1000)
+    n_samples <- rep(NA, 1000)
+    j <- 1
+    best_val <- -Inf
+    best_arg_max <- NA
+    for(s in s_max:0) {
+        # get some parameters
+        n_values <- ceiling( B * eta^s / (limit * (s+1)))
+        resources <- floor(limit * eta^(-s))
+        values <- get_values(n_values)
+        # sequential having inner loop
+        for(i in 0:s) {
+            n_i <- floor(n_values * eta^(-i))
+            r_i <- resources * eta^i 
+            ## book keeping
+            if(j + dim(values)[1] > dim(all_values)[1]) {
+                print(dim(all_values))
+                all_values <- rbind(all_values,
+                                    matrix(NA, nrow=dim(values)[1]*2,
+                                           ncol=dim(all_values)[2]))
+                n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
+            }
+            
+            all_values[j:(j + dim(values)[1] - 1),] <- values
+            n_samples[j:(j + dim(values)[1] - 1)] <-
+                rep(r_i, dim(values)[1])
+            j <- j + dim(values)[1]
+            # sample and get the mean
+            #print(values)
+            samples <- apply(values,
+                             1,
+                             function(x) sample_function(objective,
+                                                         noise_model,
+                                                         x, r_i))
+            # if only one sample is drawn, samples will be a vector
+            if(is.null(dim(samples))) {
+                emp_avgs <- samples
+            } else {
+                emp_avgs <- colMeans(samples)
+            }
+           
+            # keep the top n_i / eta
+            num_top <- floor(n_i / eta) + 1
+            print(num_top)
+            comparitor <- sort(emp_avgs,
+                               partial=num_top)[num_top]
+            keep_bool <- emp_avgs >= comparitor
+            values <- values[keep_bool, ]
+        }
+        if(emp_avgs[1] > best_val) {
+            best_arg_max <- values[1,]
+            best_val <- emp_avgs[1]
+        }
+    }
+    return(list(best_arg_max, cbind(all_values[!is.na(n_samples),],
+                                    n_samples[!is.na(n_samples)])))
+}
 
 #' Sample from the value of a function under a given noise model
 #'
@@ -105,21 +186,21 @@ bayes_opt <- function(objective, noise_model,n_samples, n_values,
         gp_fit <- FALSE
         times_tried <- 1
         while(! gp_fit) {
-        print("fitting gp")
-        tryCatch({
-            gp <<- gaussianProcess(values[1:(i-1),],
-                                   targets[1:(i-1)],
-                                   noise.var=1 / (n_samples * 4))
-            gp_fit <- TRUE
-                #return(gp_tmp)
-        }, error = function(e) {
-            times_tried <<- times_tried + 1
-            print(times_tried)
-            if(times_tried > 10) {
-                stop("Tried to fit GP an dfailed 10 times, giving up.")
-            }
-            
-        })
+            print("fitting gp")
+            tryCatch({
+                gp <<- gaussianProcess(values[1:(i-1),],
+                                       targets[1:(i-1)],
+                                       noise.var=1 / (n_samples * 4))
+                gp_fit <- TRUE
+                                        #return(gp_tmp)
+            }, error = function(e) {
+                times_tried <<- times_tried + 1
+                print(times_tried)
+                if(times_tried > 10) {
+                    stop("Tried to fit GP an dfailed 10 times, giving up.")
+                }
+                
+            })
         }
         #return(gp)
         # compute the maximum of the mean function
