@@ -86,7 +86,7 @@ run_opt_exp <- function(resources, n_per_resource, objective,
     results <- vapply(resources,
                       function(x) replicate(n_per_resource,
                                             true_max -
-                                            objective(partial_algo(x)[[1]])),
+                                            objective(partial_algo(x))),
                       double(n_per_resource))
     results <- data.frame(t(results))
     results$n_resources = resources
@@ -155,7 +155,7 @@ seq_halving_n_rand  <- function(objective, noise_model, bounds,
                n_values,
                limit,
                sequential_halving)
-    return(b_max)
+    return(b_max[[1]])
 }
 
 ## Sequential halving random search optimization where limit / n_samples = 100
@@ -187,9 +187,9 @@ bayes_opt_fixed <- function(objective, noise_model, bounds, limit) {
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
 }
 
-## Bayesian optimization with a growing number of experiments
+## Bayesian optimization with a growing number of experiments and samples
 bayes_opt_growing <- function(objective, noise_model, bounds, limit) {
-    n_samples <- 1000
-    n_values <- limit / n_samples
+    n_samples <- floor(10 * sqrt(limit / 1))
+    n_values <- n_samples / 10
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
 }
