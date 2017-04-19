@@ -70,7 +70,7 @@ pull_arms.normal_bandit <- function(bandit, n_samples) {
         means[i] <- bandit[[i]]$mean
         vars[i] <- bandit[[i]]$var
     }
-    # get random iid standard gaussians 
+    # get random iid standard gaussians
     iids <- matrix(rnorm(length(bandit) * n_samples), nrow = length(bandit),
                    ncol = n_samples)
     samples <- means + vars * iids
@@ -546,7 +546,6 @@ sequential_halving <- function(bandit, budget) {
     j <- 1
 
     for(r in 1:(ceiling(log2(n_arms))-1)) {
-
         n_pulls <- floor(budget / (length(remaining) * ceiling(log2(n_arms))))
         # book keeping
         if(j + length(idxs) > length(all_idxs)) {

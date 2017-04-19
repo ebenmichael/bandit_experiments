@@ -83,7 +83,7 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
             r_i <- resources * eta^i 
             ## book keeping
             if(j + dim(values)[1] > dim(all_values)[1]) {
-                print(dim(all_values))
+                #print(dim(all_values))
                 all_values <- rbind(all_values,
                                     matrix(NA, nrow=dim(values)[1]*2,
                                            ncol=dim(all_values)[2]))
@@ -166,7 +166,7 @@ expected_improvement <- function(gp, value, max_mean) {
 #' @param n_values The number of values to try
 #' @param bounds A d x 2 matrix of box constraints for each variable
 #' @param n_init The number of initial samples to feed the GP, defaults to 5
-bayes_opt <- function(objective, noise_model,n_samples, n_values,
+bayes_opt <- function(objective, noise_model, n_samples, n_values,
                       bounds, n_init=10) {
 
 
