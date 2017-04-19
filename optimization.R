@@ -183,26 +183,16 @@ bayes_opt <- function(objective, noise_model, n_samples, n_values,
     for(i in (1 + n_init):n_values) {
         print(i)
         # fit the gp
-        gp_fit <- FALSE
-        times_tried <- 1
-        while(! gp_fit) {
-            print("fitting gp")
-            tryCatch({
-                gp <<- gaussianProcess(values[1:(i-1),],
-                                       targets[1:(i-1)],
-                                       noise.var=1 / (n_samples * 4))
-                gp_fit <- TRUE
-                                        #return(gp_tmp)
-            }, error = function(e) {
-                times_tried <<- times_tried + 1
-                print(times_tried)
-                if(times_tried > 10) {
-                    stop("Tried to fit GP an dfailed 10 times, giving up.")
-                }
-                
+        print("fitting gp")
+        tryCatch({
+            gp <<- gaussianProcess(values[1:(i-1),],
+                                   targets[1:(i-1)],
+                                   noise.var=1 / (n_samples * 4))
+            ## return(gp_tmp)
+        }, error = function(e) {
+            gp <<- NA
             })
-        }
-        #return(gp)
+        if(is.na(gp)) return(NA)
         # compute the maximum of the mean function
         print("Finding max of mean function")
         arg_max_mu <- rgenoud::genoud(function(x) predict(gp, t(x))$mean,
@@ -255,5 +245,6 @@ bayes_opt <- function(objective, noise_model, n_samples, n_values,
         targets[i] <- mean(sample_function(objective,
                                            noise_model, next_x, n_samples))
     }
+
     return(next_x)
 }

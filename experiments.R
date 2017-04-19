@@ -182,7 +182,7 @@ seq_halving_less_rand  <- function(objective, noise_model, bounds, limit) {
 
 ## Bayesian optimization with fixed number of experiments
 bayes_opt_fixed <- function(objective, noise_model, bounds, limit) {
-    n_values <- 100
+    n_values <- 50
     n_samples <- limit / n_values
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
 }
