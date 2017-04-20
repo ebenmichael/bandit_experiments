@@ -189,7 +189,7 @@ bayes_opt_fixed <- function(objective, noise_model, bounds, limit) {
 
 ## Bayesian optimization with a growing number of experiments and samples
 bayes_opt_growing <- function(objective, noise_model, bounds, limit) {
-    n_samples <- floor(10 * sqrt(limit / 10))
-    n_values <- n_samples / 10
+    n_samples <- floor(20 * sqrt(limit / 20))
+    n_values <- floor(n_samples / 20)
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
 }
