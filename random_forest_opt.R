@@ -1,5 +1,37 @@
+source("optimization.R")
 ## Use Random Forests to learn a partition over feature space and
 ## then use bandit algorithms to choose the best partition
+
+#' Get the partition from a decision tree
+#'
+#' @param tree Tree data.frame from a random forest
+#' @param i The index of the current node
+#' @param bounds The upper and lower bounds for each dimension
+#'
+#' @return A d x 2 x n_leaf_nodes tensor of the upper and lower bounds for each
+#'         dimension and each element of the partition
+partition_recursive <- function(tree, i, bounds) {
+    if(tree[i, 3] == 0) {
+        return(bounds)
+    } else {
+        var <- tree[i, 3]
+        value <- tree[i, 4]
+        
+                                        # move to the left 
+        left_bound <- bounds
+        left_bound[var, 2] <- value
+        left_child <- tree[i, 1]
+        from_left <- partition_recursive(tree, left_child, left_bound)
+        
+                                        # move to the right
+        right_bound <- bounds
+        right_bound[var, 1] <- value
+        right_child <- tree[i, 2]
+        from_right <- partition_recursive(tree, right_child, right_bound)
+
+        return(abind::abind(from_left, from_right, along=3))
+    }
+}
 
 #' Get the partition of the feature space defined by a random forest
 #'
@@ -7,31 +39,165 @@
 #' @param targets n sampled function values
 #' @param bounds d x 2 array of upper and lower bounds for each dimension
 #' @param n_tree The number of trees to fit the random forest with
-#' @param maxnodes The maximum number of leaves a tree can have, limits grid size
-rf_partition <- function(data, targets, bounds, n_tree, max_nodes) {
+#' @param max_nodes The maximum number of leaves a tree can have, limits grid size
+#'
+#' @return A d x 2 x n_leaf_nodes tensor of the upper and lower bounds for each
+#'         dimension and each element of the partition
+rf_partition <- function(data, targets, bounds, n_tree, max_nodes=NULL) {
+
     # fit a random forest with ntree trees
     rf <- randomForest::randomForest(data, targets, ntree=n_tree,
                                      maxnodes=max_nodes)
     # get the split points for the trees
     splits <- plyr::ldply(1:n_tree,
-                          function(x) randomForest::getTree(rf, x)[,c(3,4)])
-    # add in the bounds on the space to splits 
-    bounds_melt <- reshape2::melt(bounds)[c(1,3)]
-    names(splits) <- c("split.var", "split.point")  
-    names(bounds_melt) <-names(splits)
-    splits <- rbind(splits, bounds_melt)
-    #get the left and right end points for each box in each dimension
-    one_dim_bounds <- lapply(with(splits, split(split.point, split.var)),
-                             function(x) zoo::rollapply(sort(x), 2, c))[-1]
-    # get all combinations of the boxes
-    n_boxes_dim <- lapply(one_dim_bounds, function(x) 1:dim(x)[1])
-    grid_points <- expand.grid(n_boxes_dim)
-    # combine these combination of box edges to partition the space
-    new_bounds <- array(Reduce(rbind,
-                               mapply(function(x,y) x[y,],
-                                      one_dim_bounds,
-                                      as.list(grid_points),
-                                      SIMPLIFY=F)),
-                        dim=c(dim(grid_points),2))
-    return(new_bounds)
+                          function(x) randomForest::getTree(rf, x))
+    # recursively get the partition
+    return(partition_recursive(splits, 1, bounds))
+}
+
+f_arm <- function(fun, noise_model, bounds) {
+    arm <- list(fun=fun, noise_model=noise_model, bounds=bounds)
+    class(arm) <- c("f_arm", "arm")
+    return(arm)
+}
+
+sample.f_arm <- function(arm, n_samples, with_values=FALSE) {
+    # sample uniformly in the bounds
+    values <- box_runif(n_samples, arm$bounds)
+    f_vals <- apply(values, 1,
+                    function(x) sample_function(arm$fun,
+                                                arm$noise_model,
+                                                x, 1))
+    
+    # sample from the function
+    if(! with_values) {
+        return(f_vals)
+    } else {
+        return(list(values, f_vals))
+    }
+
+}
+
+
+f_partition_bandit <- function(fun, noise_model, partition) {
+
+    arms <- apply(partition, 3, function(x) f_arm(fun, noise_model, x))
+    class(arms) <- c("f_partition_bandit", "bandit")
+    return(arms)
+}
+
+
+pull_arm.f_partition_bandit <- function(bandit, i, n_samples) {
+    return(sample(bandit[[i]], n_samples))
+}
+
+
+
+rf_bandit_opt <- function(objective, noise_model, bounds, get_values, budget,
+                          n_tree, max_nodes) {
+    if(budget < 20) {
+        # if the budget is 2, just return the average of the bounds
+        return(rowMeans(bounds))
+    } else if(ceiling(max_nodes * log2(max_nodes)) > budget / 4) {
+        # if we want too many nodes, instead use the most number of nodes we can
+        max_nodes <- floor(exp(emdbook::lambertW_base(budget / 4 * log(2)) - 0.1))
+    }
+    # use a quarter of the budget to sample points for the random forest
+    values <- get_values(floor(budget / 4), bounds)
+    targets <- apply(values, 1,
+                     function(x) sample_function(objective, noise_model, x, 1))
+    #return(list(values, targets))
+    # get the partition defined by the forest
+    partition <- rf_partition(values, targets, bounds, n_tree, max_nodes)
+    # create a bandit object from this partition
+    bandit <- f_partition_bandit(objective, noise_model, partition)
+    # use a quarter of the budget to find the best partition
+    best_arm <- sequential_halving(bandit, floor(budget / 2))[[1]]
+    best_partition <- partition[,,best_arm]
+    # return the midpoint of the best partition
+    # print(best_partition)
+    # use the remaining half of the budget to recurse into the best partition
+    arg_max <- rf_bandit_opt(objective, noise_model, best_partition,
+                             get_values, floor(budget / 2), n_tree,
+                             max_nodes)
+    return(arg_max)
+}
+
+#' Use a Random forest to sequentially partition the search space and find the
+#' arg max of a function
+#'
+#' @param objective The objective function to minimize (maximize)
+#' @param noise_model The type of noise model
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param get_values A function to propose a set of candidate values
+#' @param budget The total number of samples allowed
+#' @param max_nodes The maximum number of leaf nodes per tree
+#' @param n_tree The number of trees in the random forest
+sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
+                            max_nodes, n_tree) {
+    n_arms <- max_nodes
+    dimension <- dim(bounds)[1]
+    # create a partition with only one element, the whole space
+    partition <- array(bounds, dim=c(dim(bounds), 1))
+    for( r in 1:(ceiling(log2(n_arms))-1)) {
+        #print(r)
+        #print(dim(partition))
+        # number of times to pull each disjoint partition
+        n_pulls <- floor(budget / (dim(partition)[3] * ceiling(log2(n_arms))))
+        #print(n_pulls)
+        # for each element in the partiton, sample in that space
+        #data <- lapply(plyr::alply(partition, 3),
+        #               function(x) get_values(n_pulls, x))
+        part_band <- f_partition_bandit(objective, noise_model, partition)
+        # train a decision tree on the data and get the partitions
+        data <- lapply(part_band,
+                       function(x) sample(x,
+                                          n_pulls,
+                                          with_values=TRUE))
+        rfs <- lapply(data,
+                      function(x)
+                          randomForest::randomForest(x[[1]],
+                                                     x[[2]],
+                                                     maxnodes=max_nodes,
+                                                     ntree=n_tree,
+                                                     mtry=dimension))
+        trees <- lapply(rfs, randomForest::getTree)
+        
+        tree_partitions <- lapply(1:length(trees),
+                                  function(i)
+                                      partition_recursive(trees[[i]],
+                                                          1,
+                                                          partition[,,i]))
+        # take the n_arms/4 partitions with the best average
+        mid_points <- lapply(tree_partitions,
+                             function(x) t(apply(x, 3, rowMeans)))
+        preds <- unlist(mapply(predict, rfs, mid_points))
+        n_partitions <- length(preds)
+        #print(n_partitions)
+        if(n_partitions == 2) {
+            best_partition <- which.max(preds)
+            #print(best_partition)
+            #print(partition)
+            partition <- array(do.call(abind::abind,
+                                       tree_partitions)[,, best_partition],
+                               dim=c(dim(partition)[1:2], 1))
+        } else {
+            top <- sort(preds,
+                        partial=n_partitions -
+                            floor(n_partitions/4) +
+                            1)[n_partitions - floor(n_partitions / 4) + 1]
+            #print(top)
+            keep_bool <- preds >= top
+                                        #print(keep_bool)
+            partition <- do.call(abind::abind, tree_partitions)[,, keep_bool]
+            if(length(dim(partition)) == 2) {
+                partition <- array(partition, dim=c(dim(partition), 1))
+            }
+        }
+        #print(partition)
+        # set max_nodes to 2, always dividing the current partitions into 2
+        max_nodes = 2
+        #print("----")
+    }
+    return(rowMeans(partition[,,1]))
 }

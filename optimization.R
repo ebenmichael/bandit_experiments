@@ -74,7 +74,7 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
     best_arg_max <- NA
     for(s in s_max:0) {
         # get some parameters
-        n_values <- ceiling( B * eta^s / (limit * (s+1)))
+        n_values <- ceiling( B / limit / (s+1) * eta^s)
         resources <- floor(limit * eta^(-s))
         values <- get_values(n_values)
         # sequential having inner loop
@@ -82,20 +82,19 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
             n_i <- floor(n_values * eta^(-i))
             r_i <- resources * eta^i 
             ## book keeping
-            if(j + dim(values)[1] > dim(all_values)[1]) {
+            #if(j + dim(values)[1] > dim(all_values)[1]) {
                 #print(dim(all_values))
-                all_values <- rbind(all_values,
-                                    matrix(NA, nrow=dim(values)[1]*2,
-                                           ncol=dim(all_values)[2]))
-                n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
-            }
+            #    all_values <- rbind(all_values,
+            #                        matrix(NA, nrow=dim(values)[1]*2,
+            #                               ncol=dim(all_values)[2]))
+            #    n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
+            #}
             
-            all_values[j:(j + dim(values)[1] - 1),] <- values
-            n_samples[j:(j + dim(values)[1] - 1)] <-
-                rep(r_i, dim(values)[1])
-            j <- j + dim(values)[1]
+            #all_values[j:(j + dim(values)[1] - 1),] <- values
+            #n_samples[j:(j + dim(values)[1] - 1)] <-
+            #    rep(r_i, dim(values)[1])
+            #j <- j + dim(values)[1]
             # sample and get the mean
-            #print(values)
             samples <- apply(values,
                              1,
                              function(x) sample_function(objective,
@@ -107,18 +106,22 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
             } else {
                 emp_avgs <- colMeans(samples)
             }
-           
-            # keep the top n_i / eta
-            num_top <- floor(n_i / eta) + 1
-            print(num_top)
-            comparitor <- sort(emp_avgs,
-                               partial=num_top)[num_top]
-            keep_bool <- emp_avgs >= comparitor
-            values <- values[keep_bool, ]
+            
+            n_avgs <- length(emp_avgs)
+            if(n_avgs > eta) {
+                ## if there is more than one value keep the top n_i / eta
+                num_top <- floor(n_i / eta)
+                comparitor <- sort(emp_avgs,
+                                   partial=(n_avgs -
+                                            num_top + 1))[n_avgs -
+                                                          num_top + 1]
+                keep_bool <- emp_avgs >= comparitor
+                values <- values[keep_bool, , drop=FALSE]
+            } 
         }
-        if(emp_avgs[1] > best_val) {
-            best_arg_max <- values[1,]
-            best_val <- emp_avgs[1]
+        if(max(emp_avgs) > best_val) {
+            best_arg_max <- values[which.max(emp_avgs),]
+            best_val <- max(emp_avgs)
         }
     }
     return(list(best_arg_max, cbind(all_values[!is.na(n_samples),],
@@ -132,7 +135,6 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
 #' @param value The value of the objective to sample at
 #' @param n_samples The number of times to sample each point
 sample_function <- function(objective, noise_model, value, n_samples) {
-
     obj_value <- objective(value)
     if(noise_model == "gaussian") {
         return(t(obj_value + rnorm(n_samples) / 4))

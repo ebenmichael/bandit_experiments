@@ -55,11 +55,9 @@ pull_arms <- function(obj, ...) {
 
 ## Pull all the arms from a bandit
 pull_arms.bandit <- function(bandit, n_samples) {
-    samples <- matrix(0, nrow = length(bandit), ncol = n_samples)
-    for(i in 1:length(bandit)) {
-        samples[i,] <- pull_arm(bandit, i, n_samples)
-    }
-    return(samples)
+    samples <- t(sapply(1:length(bandit),
+                      function(x) pull_arm(bandit, x, n_samples), simplify="array"))
+    return(matrix(samples, nrow=length(bandit), ncol=n_samples))
 }
 
 ## Method to pull all the arms from a normal bandit at once
@@ -544,8 +542,8 @@ sequential_halving <- function(bandit, budget) {
     all_idxs <- rep(NA, 1000)
     n_samples <- rep(NA, 1000)
     j <- 1
-
     for(r in 1:(ceiling(log2(n_arms))-1)) {
+
         n_pulls <- floor(budget / (length(remaining) * ceiling(log2(n_arms))))
         # book keeping
         if(j + length(idxs) > length(all_idxs)) {
@@ -561,20 +559,12 @@ sequential_halving <- function(bandit, budget) {
         emp_avgs <- rowMeans(pull_arms(remaining, n_pulls))
 
         # keep the top half
-        keep_bool <- emp_avgs > median(emp_avgs)
+        keep_bool <- emp_avgs >= median(emp_avgs)
         idxs <- idxs[keep_bool]
-        remaining <- bandit(remaining[keep_bool])
-
-        
+        remaining <- bandit(remaining[keep_bool])   
     }
-    if(length(remaining) == 2) {
-        rand_idx <- rbinom(1,1,.5)
-    } else {
-        rand_idx <- 1
-    }
-    output <- list(best_idx = idxs[rand_idx],
+    output <- list(best_idx = idxs[1],
                    arm_pull_mat = cbind(all_idxs[!is.na(all_idxs)],
                                         n_samples[!is.na(n_samples)]))
     return(output)
 }
-

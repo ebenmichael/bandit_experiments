@@ -1,5 +1,6 @@
 source("bandits.R")
 source("optimization.R")
+source("random_forest_opt.R")
 library(ggplot2)
 library(pryr)
 library(dplyr)
@@ -78,6 +79,7 @@ branin <- function(x) {
 run_opt_exp <- function(resources, n_per_resource, objective,
                         noise_model, bounds, true_max, algo,
                         algo_name) {
+    print(algo_name)
     partial_algo <- pryr::partial(algo,
                                   objective=objective,
                                   noise_model=noise_model,
@@ -137,7 +139,7 @@ plot_summary_exp <- function(results) {
     return(ggplot(summary_res, aes(x=n_resources, y=mean, color=algorithm)) +
         geom_line() +
         geom_errorbar(aes(ymin=mean-1.96 * se, ymax=mean+1.96*se),
-                      width=10000) +
+                      width=1000) +
         geom_point() +
         scale_y_log10() +
         xlab("Total number of samples") +
@@ -168,7 +170,6 @@ seq_halving_100_rand  <- function(objective, noise_model, bounds, limit) {
 ## Sequential halving random search optimization where we have full exploration
 seq_halving_max_rand  <- function(objective, noise_model, bounds, limit) {
     n_values <- floor(exp(emdbook::lambertW_base(limit * log(2)) - .1))
-    print(n_values)
     b_max <- seq_halving_n_rand(objective, noise_model, bounds, limit, n_values)
     return(b_max)
 }
@@ -192,4 +193,56 @@ bayes_opt_growing <- function(objective, noise_model, bounds, limit) {
     n_samples <- floor(20 * sqrt(limit / 20))
     n_values <- floor(n_samples / 20)
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
+}
+
+
+rf_opt_n_nodes <- function(objective, noise_model, bounds, limit,
+                           max_nodes) {
+
+    return(rf_bandit_opt(objective, noise_model, bounds,
+                         box_runif, limit, 1, max_nodes))
+}
+
+rf_opt_less <- function(objective, noise_model, bounds, limit) {
+    max_nodes <- exp(emdbook::lambertW_base(limit/10 * log(2)) - 0.1)
+    return(rf_opt_n_nodes(neg_branin,
+                          "gaussian",
+                          bounds,  limit, max_nodes))
+}
+
+rf_opt_small <- function(objective, noise_model, bounds, limit) {
+    max_nodes <- 100
+    return(rf_opt_n_nodes(neg_branin,
+                          "gaussian",
+                          bounds,  limit, max_nodes))
+}
+
+seq_tree_n_tree <- function(objective, noise_model, bounds, limit, n_tree) {
+    max_nodes <- floor(limit / 20)
+    return(sequential_tree(objective,
+                           noise_model,
+                           bounds,
+                           box_runif,
+                           limit,
+                           max_nodes,
+                           n_tree))
+}
+
+seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
+    return(seq_tree_n_tree(objective, noise_model, bounds, limit, 1))
+}
+hyperband_eta <- function(objective, noise_model, bounds, limit, eta) {
+    # solve for the number of resources to give the required total budget
+    r = floor(1 /eta * exp(emdbook::lambertW_base(eta * limit * log(eta)) -
+                           0.0001))
+    return(hyperband(objective, noise_model, function(x) box_runif(x, bounds),
+                     r, eta)[[1]])
+}
+
+hyperband_3 <- function(objective, noise_model, bounds, limit) {
+    return(hyperband_eta(objective, noise_model, bounds, limit, 3))
+}
+
+hyperband_4 <- function(objective, noise_model, bounds, limit) {
+    return(hyperband_eta(objective, noise_model, bounds, limit, 4))
 }
