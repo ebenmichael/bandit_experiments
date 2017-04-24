@@ -1,3 +1,4 @@
+
 source("optimization.R")
 ## Use Random Forests to learn a partition over feature space and
 ## then use bandit algorithms to choose the best partition
@@ -131,19 +132,20 @@ rf_bandit_opt <- function(objective, noise_model, bounds, get_values, budget,
 #' @param bounds A d x 2 matrix of box constraints for each variable
 #' @param get_values A function to propose a set of candidate values
 #' @param budget The total number of samples allowed
+#' @param eta The proportion to keep at each round
 #' @param max_nodes The maximum number of leaf nodes per tree
 #' @param n_tree The number of trees in the random forest
 sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
-                            max_nodes, n_tree) {
+                            eta, max_nodes, n_tree) {
     n_arms <- max_nodes
     dimension <- dim(bounds)[1]
     # create a partition with only one element, the whole space
     partition <- array(bounds, dim=c(dim(bounds), 1))
-    for( r in 1:(ceiling(log2(n_arms))-1)) {
+    for( r in 1:(floor(logb(n_arms, eta)))) {
         #print(r)
         #print(dim(partition))
         # number of times to pull each disjoint partition
-        n_pulls <- floor(budget / (dim(partition)[3] * ceiling(log2(n_arms))))
+        n_pulls <- floor(budget / (dim(partition)[3] * ceiling(logb(n_arms, eta))))
         #print(n_pulls)
         # for each element in the partiton, sample in that space
         #data <- lapply(plyr::alply(partition, 3),
@@ -174,8 +176,9 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
         preds <- unlist(mapply(predict, rfs, mid_points))
         n_partitions <- length(preds)
         #print(n_partitions)
-        if(n_partitions == 2) {
+        if(n_partitions <= eta ^ 2) {
             best_partition <- which.max(preds)
+            max_pred <- preds[best_partition]
             #print(best_partition)
             #print(partition)
             partition <- array(do.call(abind::abind,
@@ -184,8 +187,8 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
         } else {
             top <- sort(preds,
                         partial=n_partitions -
-                            floor(n_partitions/4) +
-                            1)[n_partitions - floor(n_partitions / 4) + 1]
+                            floor(n_partitions/(eta ^ 2)) +
+                            1)[n_partitions - floor(n_partitions / (eta ^ 2)) + 1]
             #print(top)
             keep_bool <- preds >= top
                                         #print(keep_bool)
@@ -193,11 +196,53 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
             if(length(dim(partition)) == 2) {
                 partition <- array(partition, dim=c(dim(partition), 1))
             }
+            
         }
         #print(partition)
-        # set max_nodes to 2, always dividing the current partitions into 2
-        max_nodes = 2
+        # set max_nodes to 2, always dividing the current partitions into eta
+        max_nodes = eta
         #print("----")
     }
-    return(rowMeans(partition[,,1]))
+    return(list(rowMeans(partition[,,1]), max_pred))
+}
+
+
+#' Use hyperband with the sequential tree algorithm
+#' @param objective The objective function to minimize (maximize)
+#' @param noise_model The type of noise model
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param get_values A function to propose a set of candidate values
+#' @param limit The maximum amount of pulls for any parameter setting
+#' @param eta The proportion of configurations discarded at each round
+#' @param n_tree The number of trees in the random forest
+#'
+#' @return The best parameter setting found and the number of times each
+#'         setting was tried
+hypertree <- function(objective, noise_model, bounds, get_values, limit, eta,
+                      n_tree) {
+    # set up
+    s_max <-floor(logb(limit, eta))
+    B <- (s_max +1) * limit
+    #print((s_max + 1)^2 * limit)
+    best_val <- -Inf
+    best_arg_max <- NA
+    for(s in s_max:0) {
+        # get the number of arms and the number of samples for sequential tree
+        n_values <- ceiling( B / limit / (s+1) * eta^s)
+        resources <- floor(limit * eta^(-s))
+        budget <- B
+        #print(c(n_values, resources, budget))        
+        # run sequential tree for this setting of n and r
+        output <- sequential_tree(objective, noise_model, bounds, get_values,
+                                  budget, eta, max_nodes=n_values, n_tree)
+        arg_max <- output[[1]]
+        value <- output[[2]]
+        if(value >= best_val) {
+            best_val <- value
+            best_arg_max <- arg_max
+        }
+        #print(c(best_arg_max, best_val))
+    }
+    return(best_arg_max)
+    
 }

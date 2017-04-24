@@ -224,17 +224,39 @@ seq_tree_n_tree <- function(objective, noise_model, bounds, limit, n_tree) {
                            bounds,
                            box_runif,
                            limit,
+                           2,
                            max_nodes,
-                           n_tree))
+                           n_tree)[[1]])
 }
 
 seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
     return(seq_tree_n_tree(objective, noise_model, bounds, limit, 1))
 }
+
+seq_tree_eta <- function(objective, noise_model, bounds, limit, eta) {
+    max_nodes <- floor(limit / 20)
+    return(sequential_tree(objective,
+                           noise_model,
+                           bounds,
+                           box_runif,
+                           limit,
+                           eta,
+                           max_nodes,
+                           1)[[1]])
+}
+
+seq_tree_3 <- function(objective, noise_model, bounds, limit) {
+    return(seq_tree_eta(objective, noise_model, bounds, limit, 3))
+}
+
+seq_tree_4 <- function(objective, noise_model, bounds, limit) {
+    return(seq_tree_eta(objective, noise_model, bounds, limit, 4))
+}
+
 hyperband_eta <- function(objective, noise_model, bounds, limit, eta) {
     # solve for the number of resources to give the required total budget
-    r = floor(1 /eta * exp(emdbook::lambertW_base(eta * limit * log(eta)) -
-                           0.0001))
+    r = floor(1 /eta * exp(2 * emdbook::lambertW_base(sqrt(eta) * sqrt(limit) * log(eta) / 2) +
+                           0.1))
     return(hyperband(objective, noise_model, function(x) box_runif(x, bounds),
                      r, eta)[[1]])
 }
@@ -245,4 +267,19 @@ hyperband_3 <- function(objective, noise_model, bounds, limit) {
 
 hyperband_4 <- function(objective, noise_model, bounds, limit) {
     return(hyperband_eta(objective, noise_model, bounds, limit, 4))
+}
+
+hypertree_eta <- function(objective, noise_model, bounds, limit, eta) {
+    # solve for the number of resources to give the required total budget
+    r = floor(1 /eta * exp(2 * emdbook::lambertW_base(sqrt(eta) * sqrt(limit) * log(eta) / 2) +
+                           .1))
+    return(hypertree(objective, noise_model, bounds, box_runif, r, eta, 1))
+}
+
+hypertree_3 <- function(objective, noise_model, bounds, limit) {
+    return(hypertree_eta(objective, noise_model, bounds, limit, 3))
+}
+
+hypertree_4 <- function(objective, noise_model, bounds, limit) {
+    return(hypertree_eta(objective, noise_model, bounds, limit, 4))
 }
