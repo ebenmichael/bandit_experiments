@@ -121,7 +121,8 @@ run_mult_opt_exp <- function(resources, n_per_resource, objective,
 
 summary_exp <- function(results) {
     melted_results <- reshape2::melt(results,
-                              id.vars=c("n_resources", "algorithm"))
+                                     id.vars=c("n_resources", "algorithm"))
+    melted_results$log.val <- log10(melted_results$value)
     return(summarize_results(melted_results))
 }
 
@@ -129,21 +130,31 @@ summarize_results <- function(melted_results) {
     return(plyr::ddply(melted_results, c("n_resources","algorithm"),
                        summarize,
                        N = length(!is.na(value)),
-                       mean = mean(value[!is.na(value)]),
+                       mean = mean(value[!is.na(value)]),                       
+                       median = median(value[!is.na(value)]),
                        sd = sd(value[!is.na(value)]),
-                       se = sd / sqrt(N)))
+                       se = sd / sqrt(N),
+                       log.mean = mean(log.val),
+                       log.sd = sd(log.val),
+                       log.se = log.sd / N))
 }
 
 plot_summary_exp <- function(results) {
     summary_res <- summary_exp(results)
-    return(ggplot(summary_res, aes(x=n_resources, y=mean, color=algorithm)) +
+    plot_summarized_results(summary_res)
+}
+
+plot_summarized_results <- function(summary_res) {
+    return(ggplot(summary_res, aes(x=log10(n_resources), y=median, color=algorithm)) +
         geom_line() +
-        geom_errorbar(aes(ymin=mean-1.96 * se, ymax=mean+1.96*se),
-                      width=1000) +
+        #geom_errorbar(aes(ymin=mean-1.96 * se,
+        #                  ymax=mean+1.96*se),
+        #              width=.1) +
         geom_point() +
-        scale_y_log10() +
-        xlab("Total number of samples") +
-        ylab("Function Error"))
+        scale_y_log10() + 
+        xlab("Total Number of Samples (Log Scale)") +
+        ylab("Function Error (Log Scale)"))
+
 }
 
 ## A collection of partially applied functions to use with run_opt_exp
@@ -169,7 +180,7 @@ seq_halving_100_rand  <- function(objective, noise_model, bounds, limit) {
 
 ## Sequential halving random search optimization where we have full exploration
 seq_halving_max_rand  <- function(objective, noise_model, bounds, limit) {
-    n_values <- floor(exp(emdbook::lambertW_base(limit * log(2)) - .1))
+    n_values <-  floor(exp(emdbook::lambertW_base(limit * log(2)) - .1))
     b_max <- seq_halving_n_rand(objective, noise_model, bounds, limit, n_values)
     return(b_max)
 }
@@ -218,7 +229,7 @@ rf_opt_small <- function(objective, noise_model, bounds, limit) {
 }
 
 seq_tree_n_tree <- function(objective, noise_model, bounds, limit, n_tree) {
-    max_nodes <- floor(limit / 20)
+    max_nodes <- floor(exp(emdbook::lambertW_base(2 * limit * log(2)) - .1))
     return(sequential_tree(objective,
                            noise_model,
                            bounds,
@@ -234,7 +245,7 @@ seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
 }
 
 seq_tree_eta <- function(objective, noise_model, bounds, limit, eta) {
-    max_nodes <- floor(limit / 20)
+    max_nodes <- floor(exp(emdbook::lambertW_base(eta * limit * log(eta)) - .1))
     return(sequential_tree(objective,
                            noise_model,
                            bounds,
@@ -282,4 +293,63 @@ hypertree_3 <- function(objective, noise_model, bounds, limit) {
 
 hypertree_4 <- function(objective, noise_model, bounds, limit) {
     return(hypertree_eta(objective, noise_model, bounds, limit, 4))
+}
+
+
+## Partition tree with fixed number of rounds
+partition_tree_fixed_eta <- function(objective, noise_model, bounds, limit, eta) {
+    rounds <- 20
+    return(partition_tree(objective,
+                          "gaussian",
+                          bounds,
+                          box_runif,
+                          limit,
+                          eta,
+                          rounds,
+                          1))
+}
+
+partition_tree_fixed_2 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_fixed_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          2))
+}
+
+partition_tree_fixed_3 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_fixed_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          3))
+}
+
+## Partition tree with a growing number of rounds
+partition_tree_growing_eta <- function(objective, noise_model, bounds, limit, eta) {
+    rounds <- floor(sqrt(limit / 20))
+    return(partition_tree(objective,
+                          "gaussian",
+                          bounds,
+                          box_runif,
+                          limit,
+                          eta,
+                          rounds,
+                          1))
+}
+
+partition_tree_growing_2 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_growing_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          2))
+}
+
+partition_tree_growing_3 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_growing_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          3))
 }

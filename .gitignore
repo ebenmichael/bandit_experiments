@@ -35,3 +35,6 @@ vignettes/*.pdf
 # Emacs temporary files
 *~
 #*#
+
+# Ignore txt files
+*.txt

@@ -246,3 +246,82 @@ hypertree <- function(objective, noise_model, bounds, get_values, limit, eta,
     return(best_arg_max)
     
 }
+
+
+#' Use a Random forest to sequentially partition the search space and find the
+#' arg max of a function
+#'
+#' @param objective The objective function to minimize (maximize)
+#' @param noise_model The type of noise model
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param get_values A function to propose a set of candidate values
+#' @param budget The total number of samples allowed
+#' @param eta The proportion to keep at each round
+#' @param rounds The number of times to make the partition finer
+#' @param n_tree The number of trees in the random forest
+partition_tree <- function(objective, noise_model, bounds, get_values, budget,
+                            eta, rounds, n_tree) {
+    max_nodes <- eta^2
+    dimension <- dim(bounds)[1]
+    # create a partition with only one element, the whole space
+    partition <- array(bounds, dim=c(dim(bounds), 1))
+    for( r in 1:rounds) {
+        #print(r)
+        #print(dim(partition))
+        # number of times to pull each disjoint partition
+        n_pulls <- floor(budget / (dim(partition)[3] * rounds))
+        #print(n_pulls)
+        # for each element in the partiton, sample in that space
+        part_band <- f_partition_bandit(objective, noise_model, partition)
+        # train a decision tree on the data and get the partitions
+        data <- lapply(part_band,
+                       function(x) sample(x,
+                                          n_pulls,
+                                          with_values=TRUE))
+        rfs <- lapply(data,
+                      function(x)
+                          randomForest::randomForest(x[[1]],
+                                                     x[[2]],
+                                                     maxnodes=max_nodes,
+                                                     ntree=n_tree,
+                                                     mtry=dimension))
+        trees <- lapply(rfs, randomForest::getTree)
+        
+        tree_partitions <- lapply(1:length(trees),
+                                  function(i)
+                                      partition_recursive(trees[[i]],
+                                                          1,
+                                                          partition[,,i]))
+        # take the n_arms/eta partitions with the best average
+        mid_points <- lapply(tree_partitions,
+                             function(x) t(apply(x, 3, rowMeans)))
+        preds <- unlist(mapply(predict, rfs, mid_points))
+        n_partitions <- length(preds)
+        #print(n_partitions)
+
+        top <- sort(preds,
+                    partial=n_partitions -
+                        floor(n_partitions/(eta)) +
+                        1)[n_partitions - floor(n_partitions / (eta)) + 1]
+
+        keep_bool <- preds >= top
+        #print(keep_bool)
+        partition <- do.call(abind::abind, tree_partitions)
+        #print(partition)        
+        best_partition_idx <- which.max(preds)
+        best_partition <- partition[,, best_partition_idx]
+        partition <- partition[,, keep_bool]
+        #print("-")
+        #print(partition)
+        #print(sum(apply(apply(partition,1, diff), 1, prod)))
+        # if the volume gets too small, return the middle of the box
+        volume <- sum(apply(apply(partition,1, diff), 1, prod))
+        if(volume < sqrt(.Machine$double.eps)) {
+            return(rowMeans(best_partition))
+        }
+        # set max_nodes to 2, always dividing the current partitions into eta
+        max_nodes <- eta
+        #print("----")
+    }
+    return(rowMeans(best_partition))
+}
