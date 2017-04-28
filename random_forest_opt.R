@@ -93,35 +93,34 @@ pull_arm.f_partition_bandit <- function(bandit, i, n_samples) {
 }
 
 
+#' Use a decision tree to partition the space and give the centers of the
+#' partitions to sequential halving
+tree_sequential_halving <- function(objective, noise_model, bounds,
+                                    get_values, budget, max_nodes,
+                                    proportion) {
+    # query the function using proportion of the budget
+    values <- get_values(floor(budget * proportion), bounds)
+    targets <- apply(values, 1, function(x) sample_function(objective,
+                                                            noise_model,
+                                                            x,
+                                                            1))
+    # fit a decision tree and partition the space
+    tree <- randomForest::randomForest(values,
+                                       targets,
+                                       mtry=dim(values)[2],
+                                       n_tree=1,
+                                       #replace=FALSE,
+                                       #sampsize=dim(values)[1],
+                                       maxnodes=max_nodes)
+    tree <- randomForest::getTree(tree)
+    partition <- partition_recursive(tree, 1, bounds)
+    # make a bandit from the mid points of the partitions
+    mid_points <- t(apply(partition, 3, rowMeans))
+    band <- create_bandit(objective, noise_model, mid_points)
+    # run sequential halving with the remaining budget
 
-rf_bandit_opt <- function(objective, noise_model, bounds, get_values, budget,
-                          n_tree, max_nodes) {
-    if(budget < 20) {
-        # if the budget is 2, just return the average of the bounds
-        return(rowMeans(bounds))
-    } else if(ceiling(max_nodes * log2(max_nodes)) > budget / 4) {
-        # if we want too many nodes, instead use the most number of nodes we can
-        max_nodes <- floor(exp(emdbook::lambertW_base(budget / 4 * log(2)) - 0.1))
-    }
-    # use a quarter of the budget to sample points for the random forest
-    values <- get_values(floor(budget / 4), bounds)
-    targets <- apply(values, 1,
-                     function(x) sample_function(objective, noise_model, x, 1))
-    #return(list(values, targets))
-    # get the partition defined by the forest
-    partition <- rf_partition(values, targets, bounds, n_tree, max_nodes)
-    # create a bandit object from this partition
-    bandit <- f_partition_bandit(objective, noise_model, partition)
-    # use a quarter of the budget to find the best partition
-    best_arm <- sequential_halving(bandit, floor(budget / 2))[[1]]
-    best_partition <- partition[,,best_arm]
-    # return the midpoint of the best partition
-    # print(best_partition)
-    # use the remaining half of the budget to recurse into the best partition
-    arg_max <- rf_bandit_opt(objective, noise_model, best_partition,
-                             get_values, floor(budget / 2), n_tree,
-                             max_nodes)
-    return(arg_max)
+    best_mid <- sequential_halving(band, floor(budget * (1-proportion)))[[1]]
+    return(mid_points[best_mid, ])
 }
 
 #' Use a Random forest to sequentially partition the search space and find the
@@ -141,6 +140,8 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
     dimension <- dim(bounds)[1]
     # create a partition with only one element, the whole space
     partition <- array(bounds, dim=c(dim(bounds), 1))
+    # keep track of partitions to look at later
+    partitions <- list()
     for( r in 1:(floor(logb(n_arms, eta)))) {
         #print(r)
         #print(dim(partition))
@@ -148,8 +149,7 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
         n_pulls <- floor(budget / (dim(partition)[3] * ceiling(logb(n_arms, eta))))
         #print(n_pulls)
         # for each element in the partiton, sample in that space
-        #data <- lapply(plyr::alply(partition, 3),
-        #               function(x) get_values(n_pulls, x))
+
         part_band <- f_partition_bandit(objective, noise_model, partition)
         # train a decision tree on the data and get the partitions
         data <- lapply(part_band,
@@ -196,14 +196,17 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
             if(length(dim(partition)) == 2) {
                 partition <- array(partition, dim=c(dim(partition), 1))
             }
-            
         }
+        partitions[[r]] <- partition
         #print(partition)
         # set max_nodes to 2, always dividing the current partitions into eta
         max_nodes = eta
         #print("----")
     }
-    return(list(rowMeans(partition[,,1]), max_pred))
+    return(list(rowMeans(partition[,,1]),
+                max_pred,
+                partition[,,1],
+                partitions))
 }
 
 

@@ -147,9 +147,9 @@ plot_summary_exp <- function(results) {
 plot_summarized_results <- function(summary_res) {
     return(ggplot(summary_res, aes(x=log10(n_resources), y=median, color=algorithm)) +
         geom_line() +
-        #geom_errorbar(aes(ymin=mean-1.96 * se,
-        #                  ymax=mean+1.96*se),
-        #              width=.1) +
+        geom_errorbar(aes(ymin=mean-1.96 * se,
+                          ymax=mean+1.96*se),
+                      width=.1) +
         geom_point() +
         scale_y_log10() + 
         xlab("Total Number of Samples (Log Scale)") +
@@ -206,45 +206,9 @@ bayes_opt_growing <- function(objective, noise_model, bounds, limit) {
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
 }
 
-
-rf_opt_n_nodes <- function(objective, noise_model, bounds, limit,
-                           max_nodes) {
-
-    return(rf_bandit_opt(objective, noise_model, bounds,
-                         box_runif, limit, 1, max_nodes))
-}
-
-rf_opt_less <- function(objective, noise_model, bounds, limit) {
-    max_nodes <- exp(emdbook::lambertW_base(limit/10 * log(2)) - 0.1)
-    return(rf_opt_n_nodes(neg_branin,
-                          "gaussian",
-                          bounds,  limit, max_nodes))
-}
-
-rf_opt_small <- function(objective, noise_model, bounds, limit) {
-    max_nodes <- 100
-    return(rf_opt_n_nodes(neg_branin,
-                          "gaussian",
-                          bounds,  limit, max_nodes))
-}
-
-seq_tree_n_tree <- function(objective, noise_model, bounds, limit, n_tree) {
-    max_nodes <- floor(exp(emdbook::lambertW_base(2 * limit * log(2)) - .1))
-    return(sequential_tree(objective,
-                           noise_model,
-                           bounds,
-                           box_runif,
-                           limit,
-                           2,
-                           max_nodes,
-                           n_tree)[[1]])
-}
-
-seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
-    return(seq_tree_n_tree(objective, noise_model, bounds, limit, 1))
-}
-
-seq_tree_eta <- function(objective, noise_model, bounds, limit, eta) {
+## Sequential Tree with a certain number of trees
+seq_tree_eta_n_tree <- function(objective, noise_model, bounds, limit, eta,
+                                n_tree) {
     max_nodes <- floor(exp(emdbook::lambertW_base(eta * limit * log(eta)) - .1))
     return(sequential_tree(objective,
                            noise_model,
@@ -253,15 +217,27 @@ seq_tree_eta <- function(objective, noise_model, bounds, limit, eta) {
                            limit,
                            eta,
                            max_nodes,
-                           1)[[1]])
+                           n_tree))
+}
+
+seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
+    return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 2,
+                               1)[[1]])
+}
+
+seq_tree_10_tree <- function(objective, noise_model, bounds, limit) {
+    return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 2,
+                               10)[[1]])
 }
 
 seq_tree_3 <- function(objective, noise_model, bounds, limit) {
-    return(seq_tree_eta(objective, noise_model, bounds, limit, 3))
+    return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 3,
+                               1)[[1]])
 }
 
 seq_tree_4 <- function(objective, noise_model, bounds, limit) {
-    return(seq_tree_eta(objective, noise_model, bounds, limit, 4))
+    return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 4,
+                               1)[[1]])
 }
 
 hyperband_eta <- function(objective, noise_model, bounds, limit, eta) {
@@ -352,4 +328,184 @@ partition_tree_growing_3 <- function(objective, noise_model, bounds, limit) {
                           bounds,
                           limit,
                           3))
+}
+
+
+tree_seq_halving_prop <- function(objective, noise_model, bounds, limit,
+                                  proportion) {
+    max_nodes <-  floor(exp(emdbook::lambertW_base(limit *
+                                                   log(2) *
+                                                   (1 - proportion)) - .1))
+    print(max_nodes)
+    return(tree_sequential_halving(objective,
+                                   noise_model,
+                                   bounds,
+                                   box_runif,
+                                   limit,
+                                   max_nodes,
+                                   proportion))
+                                   
+}
+
+### More fine grained experiments for sequential tree
+
+#' Count the proportion of times that the final partition in sequential
+#' tree contains an arg max
+#' 
+#' @param resources Vector of resources levels to try
+#' @param n_per_resources Number of times to optimize at each resource level
+#' @param objective The objective function to maximize
+#' @param noise_model The distribution of the noise
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param true_arg_max A matrix of true arg maxes to compare to
+#' @param eta Amount to cut the number of boxes by
+#' @param n_tree Number of trees in forest
+arg_max_in_partition_exp <- function(resources, n_per_resource, objective,
+                                     noise_model, bounds, true_arg_max, eta,
+                                     n_tree) {
+
+    print(c(eta, n_tree))
+    partial_algo <- pryr::partial(seq_tree_eta_n_tree,
+                                  objective=objective,
+                                  noise_model=noise_model,
+                                  bounds=bounds,
+                                  eta=eta,
+                                  n_tree=n_tree)
+    
+    results <- vapply(resources,
+                      function(x) rowMeans(replicate(n_per_resource,
+                                            contains_arg_max(true_arg_max,
+                                                             partial_algo(x)[[3]]))),
+                      double(2))
+    results <- data.frame(t(results))
+    names(results) <-  c("percent.true", "max.L.inf")
+    results$n_resources <- resources
+    results$n_tree <- n_tree
+    results$eta <- eta
+    return(results)
+}
+
+contains_arg_max <- function(true_arg_max, box) {
+    # get the maximum side length of the box
+    max_len <- max(box[,2] - box[,1])
+    return(c( 1* any(sapply(1:dim(true_arg_max)[1] ,
+                      function(i)
+                          any(sapply(1:dim(true_arg_max)[2],
+                                     function(j)
+                                         true_arg_max[i,j] >= box[j,1] &&
+                                         true_arg_max[i,j] <= box[j,2])))),
+             max_len))
+}
+
+#' Count the proportion of times that the final partition in sequential
+#' tree contains an arg max
+#' 
+#' @param resources Vector of resources levels to try
+#' @param n_per_resources Number of times to optimize at each resource level
+#' @param objective The objective function to maximize
+#' @param noise_model The distribution of the noise
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param true_arg_max A matrix of true arg maxes to compare to
+#' @param etas Vector of amounts to cut the number of boxes by
+#' @param n_trees Vector of number of trees in forest
+arg_max_in_partition_mult_exp <- function(resources, n_per_resource, objective,
+                                     noise_model, bounds, true_arg_max, etas,
+                                     n_trees) {
+
+    grid <- expand.grid(etas, n_trees)
+    return(t(mapply(
+        function(eta, n_tree) arg_max_in_partition_exp(resources,
+                                               n_per_resource,
+                                               objective,
+                                               noise_model,
+                                               bounds,
+                                               true_arg_max,
+                                               eta,
+                                               n_tree),
+        grid$Var1,
+        grid$Var2)))
+}
+
+#' Count the proportion of times that seq tree doesn't throw away the arg max
+#' 
+#' @param resources Vector of resources levels to try
+#' @param n_per_resources Number of times to optimize at each resource level
+#' @param objective The objective function to maximize
+#' @param noise_model The distribution of the noise
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param true_arg_max A matrix of true arg maxes to compare to
+#' @param eta Amount to cut the number of boxes by
+#' @param n_tree Number of trees in forest
+correct_per_round_exp <- function(resources, n_per_resource, objective,
+                                     noise_model, bounds, true_arg_max, eta,
+                                     n_tree) {
+
+    print(c(eta, n_tree))
+    partial_algo <- pryr::partial(seq_tree_eta_n_tree,
+                                  objective=objective,
+                                  noise_model=noise_model,
+                                  bounds=bounds,
+                                  eta=eta,
+                                  n_tree=n_tree)
+    
+    results <- sapply(resources,
+                      function(x)
+                          rowMeans(
+                              replicate(n_per_resource,
+                                        sapply(partial_algo(x)[[4]],
+                                               function(part)
+                                                   max(
+                                                       apply(
+                                                           part,
+                                                           3,
+                                                           function(box)
+                                                               contains_arg_max(
+                                                                   true_arg_max,
+                                                                   box)[1]))))))
+    if(is.list(results)) {
+        results <- plyr::ldply(1:length(resources),
+                               function(i)
+                                   data.frame(pct.contain=results[[i]],
+                                              round=1:length(results[[i]]),
+                                              n_resources=resources[i],
+                                              eta=eta,
+                                              n_tree=n_tree))
+    }
+    else {
+        results <- data.frame(pct.contain = results,
+                              round = 1:dim(results)[1],
+                              n_resources = resources[1],
+                              eta = eta,
+                              n_tree = n_tree)
+    }
+    return(results)
+}
+
+#' Count the proportion of times that seq tree doesn't throw away the arg max,
+#' for various etas and number of trees
+#' 
+#' @param resources Vector of resources levels to try
+#' @param n_per_resources Number of times to optimize at each resource level
+#' @param objective The objective function to maximize
+#' @param noise_model The distribution of the noise
+#' @param bounds A d x 2 matrix of box constraints for each variable
+#' @param true_arg_max A matrix of true arg maxes to compare to
+#' @param etas Vector of amount to cut the number of boxes by
+#' @param n_trees Vector of number of trees in forest
+correct_per_round_mult_exp <- function(resources, n_per_resource, objective,
+                                       noise_model, bounds, true_arg_max, etas,
+                                       n_trees) {
+    grid <- expand.grid(etas, n_trees)
+    return(plyr::ldply(
+        1:dim(grid)[1],
+        function(i)
+            correct_per_round_exp(resources,
+                                  n_per_resource,
+                                  objective,
+                                  noise_model,
+                                  bounds,
+                                  true_arg_max,
+                                  grid[i,1],
+                                  grid[i,2])))
+
 }
