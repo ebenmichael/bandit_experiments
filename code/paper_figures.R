@@ -3,7 +3,6 @@ source("experiments.R")
 source("random_forest_opt.R")
 source("optimization.R")
 library(ggplot2)
-library(gridExtra)
 ### functions and bounds for testing
 
 ## Branin function for testing optimization
@@ -78,19 +77,21 @@ hart6_max <- 3.32237
 
 ### Empirical Evaluation
 
-bayes_opt_branin <- function(n_per_resource) {
+bayes_opt_branin_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
-                            bran_bd, bran_max, c("bayes_opt_growing_halving",
-                                                 "bayes_opt_growing_hyper"))
+                            "gaussian", bran_bd, bran_max,
+                            c("bayes_opt_growing_halving",
+                              "bayes_opt_growing_hyper"))
     return(res)
 }
 
-bandit_opt_branin <- function(n_per_resource) {
+bandit_opt_branin_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
-                            bran_bd, bran_max, c("hyperband_3",
-                                                 "hyperband_4",
-                                                 "sequential_halving_max_rand",
-                                                 "sequential_halving_100_rand"))
+                            "gaussian", bran_bd, bran_max,
+                            c("hyperband_3",
+                              "hyperband_4",
+                              "sequential_halving_max_rand",
+                              "sequential_halving_100_rand"))
     return(res)
     
 }
