@@ -38,3 +38,8 @@ vignettes/*.pdf
 
 # Ignore txt files
 *.txt
+
+# Ignore stuff from latex
+*.log
+*.aux
+*.out

@@ -81,7 +81,8 @@ bayes_opt_branin_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
                             "gaussian", bran_bd, bran_max,
                             c("bayes_opt_growing_halving",
-                              "bayes_opt_growing_hyper"))
+                              "bayes_opt_growing_hyper"),
+                            "negative.branin")
     return(res)
 }
 
@@ -90,8 +91,9 @@ bandit_opt_branin_gaus <- function(n_per_resource) {
                             "gaussian", bran_bd, bran_max,
                             c("hyperband_3",
                               "hyperband_4",
-                              "sequential_halving_max_rand",
-                              "sequential_halving_100_rand"))
+                              "seq_halving_max_rand",
+                              "seq_halving_100_rand"),
+                            "negative.branin")
     return(res)
     
 }

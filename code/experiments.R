@@ -17,9 +17,10 @@ library(dplyr)
 #' @param algo The algorithm to use which only takes in (
 #'             objective, noise_model, resources)
 #' @param algo_name Name of the algorithm
+#' @param obj_name Name of the objective function
 run_opt_exp <- function(resources, n_per_resource, objective,
                         noise_model, bounds, true_max, algo,
-                        algo_name) {
+                        algo_name, obj_name) {
     print(algo_name)
     partial_algo <- pryr::partial(algo,
                                   objective=objective,
@@ -39,7 +40,7 @@ run_opt_exp <- function(resources, n_per_resource, objective,
     }
     results$algorithm <- algo_name
     results$noise_model <- noise_model
-    results$objective <- deparse(substitute(objective))
+    results$objective <- obj_name
     return(results)
 }
 
@@ -53,8 +54,10 @@ run_opt_exp <- function(resources, n_per_resource, objective,
 #' @param true_max The true maximum to compare the error to
 #' @param algos Names of the algorithms to use which only take in (
 #'             objective, noise_model, resources)
+#' @param obj_name Name of the objective function
 run_mult_opt_exp <- function(resources, n_per_resource, objective,
-                             noise_model, bounds, true_max, algos) {
+                             noise_model, bounds, true_max, algos,
+                             obj_name) {
     return(plyr::ldply(algos,
           function(a) run_opt_exp(resources,
                                   n_per_resource,
@@ -63,7 +66,8 @@ run_mult_opt_exp <- function(resources, n_per_resource, objective,
                                   bounds,
                                   true_max,
                                   match.fun(a),
-                                  a)))
+                                  a,
+                                  obj_name)))
 }
 
 summary_exp <- function(results) {
@@ -143,7 +147,7 @@ seq_halving_less_rand  <- function(objective, noise_model, bounds, limit) {
 bayes_opt_fixed <- function(objective, noise_model, bounds, limit) {
     n_values <- 50
     n_samples <- limit / n_values
-    return(bayes_opt(objective, noise_model, n_samples, n_values, bounds))
+    return(list(bayes_opt(objective, noise_model, n_samples, n_values, bounds)))
 }
 
 ## Bayesian optimization with a growing number of experiments and samples
@@ -152,7 +156,8 @@ bayes_opt_growing_halving <- function(objective, noise_model, bounds, limit) {
     n_values <- 2 * floor(emdbook::lambertW_base(limit * log(2)) - .1)
     n_samples <- limit / (n_values + 2)
     print(n_values)
-    return(bayes_opt(objective, noise_model, n_samples, n_values, bounds, n_init=2))
+    return(list(bayes_opt(objective, noise_model, n_samples,
+                          n_values, bounds, n_init=2)))
 }
 
 ## Bayesian optimization with a growing number of experiments and samples
@@ -165,7 +170,8 @@ bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
     for(s in s_max:0) { for(i in 0:s) { n_values <- n_values + 1}}
     n_samples <- limit / n_values
     print(n_values)
-    return(bayes_opt(objective, noise_model, n_samples, n_values, bounds, n_init=2))    
+    return(list(bayes_opt(objective, noise_model, n_samples, n_values,
+                          bounds, n_init=2))    )
 }
 
 ## Sequential Tree with a certain number of trees
