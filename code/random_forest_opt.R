@@ -135,7 +135,7 @@ tree_sequential_halving <- function(objective, noise_model, bounds,
 #' @param max_nodes The maximum number of leaf nodes per tree
 #' @param n_tree The number of trees in the random forest
 sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
-                            eta, max_nodes, n_tree) {
+                            eta, max_nodes, n_tree) {    
     n_arms <- max_nodes
     dimension <- dim(bounds)[1]
     # create a partition with only one element, the whole space

@@ -29,11 +29,17 @@ run_opt_exp <- function(resources, n_per_resource, objective,
     results <- vapply(resources,
                       function(x) replicate(n_per_resource,
                                             true_max -
-                                            objective(partial_algo(x))),
+                                            objective(partial_algo(x)[[1]])),
                       double(n_per_resource))
     results <- data.frame(t(results))
-    results$n_resources = resources
-    results$algorithm = algo_name
+    if(identical(algo, hyperband_3) || identical(algo, hyperband_4)) {
+        results$n_resources <- sapply(resources, function(x) partial_algo(x)[[2]])
+    } else {
+        results$n_resources <- resources
+    }
+    results$algorithm <- algo_name
+    results$noise_model <- noise_model
+    results$objective <- deparse(substitute(objective))
     return(results)
 }
 
@@ -109,7 +115,7 @@ seq_halving_n_rand  <- function(objective, noise_model, bounds,
                n_values,
                limit,
                sequential_halving)
-    return(b_max[[1]])
+    return(b_max)
 }
 
 ## Sequential halving random search optimization where limit / n_samples = 100
@@ -142,10 +148,24 @@ bayes_opt_fixed <- function(objective, noise_model, bounds, limit) {
 
 ## Bayesian optimization with a growing number of experiments and samples
 ## Use twice the number of rounds as maximum exploration sequential halving
-bayes_opt_growing <- function(objective, noise_model, bounds, limit) {
+bayes_opt_growing_halving <- function(objective, noise_model, bounds, limit) {
     n_values <- 2 * floor(emdbook::lambertW_base(limit * log(2)) - .1)
     n_samples <- limit / (n_values + 2)
+    print(n_values)
     return(bayes_opt(objective, noise_model, n_samples, n_values, bounds, n_init=2))
+}
+
+## Bayesian optimization with a growing number of experiments and samples
+## Use the number of rounds Hyperband_3 gets
+bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
+    s_max < floor(logb(floor(1 /3 * exp(2 * emdbook::lambertW_base(sqrt(3) *
+                                                      sqrt(limit) * log(3) / 2) +
+                               .27)), 3))
+    n_values <- 0
+    for(s in s_max:0) { for(i in 0:s) { n_values <- n_values + 1}}
+    n_samples <- limit / n_values
+    print(n_values)
+    return(bayes_opt(objective, noise_model, n_samples, n_values, bounds, n_init=2))    
 }
 
 ## Sequential Tree with a certain number of trees
@@ -164,30 +184,31 @@ seq_tree_eta_n_tree <- function(objective, noise_model, bounds, limit, eta,
 
 seq_tree_1_tree <- function(objective, noise_model, bounds, limit) {
     return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 2,
-                               1)[[1]])
+                               1))
 }
 
 seq_tree_10_tree <- function(objective, noise_model, bounds, limit) {
     return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 2,
-                               10)[[1]])
+                               10))
 }
 
 seq_tree_3 <- function(objective, noise_model, bounds, limit) {
     return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 3,
-                               1)[[1]])
+                               1))
 }
 
 seq_tree_4 <- function(objective, noise_model, bounds, limit) {
     return(seq_tree_eta_n_tree(objective, noise_model, bounds, limit, 4,
-                               1)[[1]])
+                               1))
 }
 
 hyperband_eta <- function(objective, noise_model, bounds, limit, eta) {
     # solve for the number of resources to give the required total budget
-    r = floor(1 /eta * exp(2 * emdbook::lambertW_base(sqrt(eta) * sqrt(limit) * log(eta) / 2) +
-                           0.1))
-    return(hyperband(objective, noise_model, function(x) box_runif(x, bounds),
-                     r, eta)[[1]])
+    r = floor(1 /eta * exp(2 * emdbook::lambertW_base(sqrt(eta) *
+                                                      sqrt(limit) * log(eta) / 2) +
+                           .27))
+    return(hyperband(objective, noise_model, bounds, box_runif,
+                     r, eta))
 }
 
 hyperband_3 <- function(objective, noise_model, bounds, limit) {

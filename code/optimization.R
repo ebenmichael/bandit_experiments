@@ -56,44 +56,31 @@ bandit_opt <- function(objective, noise_model, get_values, n_values, limit,
 #' Perform the Hyperband routine (Li 2017)
 #' @param objective The objective function to minimize (maximize)
 #' @param noise_model The type of noise model
+#' @param bounds A d x 2 matrix of box constraints for each variable
 #' @param get_values A function to propose a set of candidate values
 #' @param limit The maximum amount of pulls for any parameter setting
 #' @param eta The proportion of configurations discarded at each round
 #'
 #' @return The best parameter setting found and the number of times each
 #'         setting was tried
-hyperband <- function(objective, noise_model, get_values, limit, eta) {
+hyperband <- function(objective, noise_model, bounds, get_values, limit, eta) {
     s_max <-floor(logb(limit, eta))
     B <- (s_max +1) * limit
-    tmp_val <- get_values(1)
     ## book keeping
-    all_values <- matrix(NA, ncol=dim(tmp_val)[2], nrow=1000)
-    n_samples <- rep(NA, 1000)
-    j <- 1
+    n_samples <- 0
     best_val <- -Inf
     best_arg_max <- NA
     for(s in s_max:0) {
         # get some parameters
         n_values <- ceiling( B / limit / (s+1) * eta^s)
         resources <- floor(limit * eta^(-s))
-        values <- get_values(n_values)
+        values <- get_values(n_values, bounds)
         # sequential having inner loop
         for(i in 0:s) {
             n_i <- floor(n_values * eta^(-i))
             r_i <- resources * eta^i 
             ## book keeping
-            #if(j + dim(values)[1] > dim(all_values)[1]) {
-                #print(dim(all_values))
-            #    all_values <- rbind(all_values,
-            #                        matrix(NA, nrow=dim(values)[1]*2,
-            #                               ncol=dim(all_values)[2]))
-            #    n_samples <- c(n_samples, rep(NA, length(n_samples) * 2))
-            #}
-            
-            #all_values[j:(j + dim(values)[1] - 1),] <- values
-            #n_samples[j:(j + dim(values)[1] - 1)] <-
-            #    rep(r_i, dim(values)[1])
-            #j <- j + dim(values)[1]
+            n_samples <- n_samples + n_i * r_i
             # sample and get the mean
             samples <- apply(values,
                              1,
@@ -117,15 +104,16 @@ hyperband <- function(objective, noise_model, get_values, limit, eta) {
                                                           num_top + 1]
                 keep_bool <- emp_avgs >= comparitor
                 values <- values[keep_bool, , drop=FALSE]
+                emp_avgs <- emp_avgs[keep_bool]
             } 
         }
         if(max(emp_avgs) > best_val) {
+
             best_arg_max <- values[which.max(emp_avgs),]
             best_val <- max(emp_avgs)
         }
     }
-    return(list(best_arg_max, cbind(all_values[!is.na(n_samples),],
-                                    n_samples[!is.na(n_samples)])))
+    return(list(best_arg_max, n_samples))
 }
 
 #' Sample from the value of a function under a given noise model
