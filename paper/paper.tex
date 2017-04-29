@@ -1,0 +1,191 @@
+\documentclass[twoside,11pt]{article}
+
+% Any additional packages needed should be included after jmlr2e.
+% Note that jmlr2e.sty includes epsfig, amssymb, natbib and graphicx,
+% and defines many common macros, such as 'proof' and 'example'.
+%
+% It also sets the bibliographystyle to plainnat; for more information on
+% natbib citation styles, see the natbib documentation, a copy of which
+% is archived at http://www.jmlr.org/format/natbib.pdf
+
+\usepackage{jmlr2e}
+
+% Definitions of handy macros can go here
+\usepackage{blindtext}
+
+\usepackage{amsmath, amsfonts, amssymb,amscd, enumerate,algorithm,algpseudocode,graphicx,fancyhdr,bbm,tikz,subfigure,listings}
+\usepackage[a4paper,bindingoffset=0.2in,left=1in,right=1in,top=1.5in,bottom=1.5in,footskip=.25in]{geometry}
+\usetikzlibrary{fit, positioning}
+ 
+
+\newcommand{\R}{\ensuremath{\mathbb{R}}}
+\newcommand{\N}{\ensuremath{\mathbb{N}}}
+\newcommand{\Q}{\ensuremath{\mathbb{Q}}}
+\newcommand{\Z}{\ensuremath{\mathbb{Z}}}
+\newcommand{\I}{\ensuremath{\mathbb{I}}}
+\newcommand{\1}{\ensuremath{\mathbbm{1}}}
+\newcommand{\calF}{\ensuremath{\mathcal{F}}}
+\newcommand{\calB}{\ensuremath{\mathcal{B}}}
+\newcommand{\calO}{\ensuremath{\mathcal{O}}}
+\newcommand{\E}{\ensuremath{\mathbb{E}}}
+\newcommand{\calA}{\ensuremath{\mathcal{A}}}
+\newcommand{\calG}{\ensuremath{\mathcal{G}}}
+\newcommand{\calJ}{\ensuremath{\mathcal{J}}}
+\newcommand{\calT}{\ensuremath{\mathcal{T}}}
+\newcommand{\calP}{\ensuremath{\mathcal{P}}}
+\newcommand{\calU}{\ensuremath{\mathcal{U}}}
+\newcommand{\calC}{\ensuremath{\mathcal{C}}}
+\newcommand{\calN}{\ensuremath{\mathcal{N}}}
+\newcommand{\calX}{\ensuremath{\mathcal{X}}}
+\newcommand{\calY}{\ensuremath{\mathcal{Y}}}
+\newcommand{\Cov}{\text{Cov}}
+\newcommand{\Var}{\text{Var}}
+\newcommand{\MSE}{\text{MSE}}
+\newcommand{\logit}{\text{logit}}
+\newcommand{\argmax}{\text{argmax}}
+\newcommand{\argmin}{\text{argmin}}
+\newcommand{\dom}{\text{dom}}
+\newcommand{\dist}{\text{dist}}
+\newcommand{\prox}{\text{prox}}
+\newcommand{\sign}{\text{sign}}
+\newcommand{\nuc}{\text{nuc}}
+\newcommand{\trace}{\text{trace}}
+\newcommand{\<}{\langle}
+\renewcommand{\>}{\rangle}
+\def\super{\textsuperscript}
+\def\sub{\textsubscript}
+
+\newcommand\pderiv[2]{\frac{\partial #1}{\partial #2}}
+\newcommand\deriv[2]{\frac{d #1}{d #2}}
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+% Heading arguments are {volume}{year}{pages}{submitted}{published}{author-full-names}
+
+%\jmlrheading{1}{2000}{1-48}{4/00}{10/00}{meila00a}{Marina Meil\u{a} and Michael I. Jordan}
+
+% Short headings should be running head and authors last names
+
+\ShortHeadings{TREES!!}{TREES!!}
+\firstpageno{1}
+
+\begin{document}
+
+\title{TREEES}
+
+\author{\name Eli Ben-Michael \email ebenmichael@berkeley.edu \\
+       \addr Department of Statistics\\
+       University of California\\
+       Berkeley, CA 94720-1776, USA}
+
+\editor{}
+
+\maketitle
+
+\begin{abstract}%   <- trailing '%' for backward compatibility of .sty file
+  \blindtext[1]
+\end{abstract}
+
+\begin{keywords}
+  TREEES
+\end{keywords}
+
+\section{Introduction}
+\blindtext[1]
+\section{Bayesian Optimization and Bandit-Based Algorithms}
+
+\subsection{Bayesian Optimization}
+
+\subsection{SuccessiveHalving and Hyperband}
+
+\section{A Trio of Tree Algorithms}
+
+\subsection{SequentialHalving with Decision Tree inputs}
+
+\subsection{SequentialTree}
+\subsubsection{Algorithm}
+
+\begin{algorithm}[H]
+\caption{SequentialTree}
+\label{seq_tree}
+\begin{algorithmic}
+\Procedure{SequentialTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $m$}
+\State Assign $\calP = \{\calX\}$
+\State Assign $\texttt{n\_nodes} = m$
+\For{$r =1\ldots \log_\eta(m)$}
+\State The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| \lceil \log_\eta(m) \rceil} \right \rfloor$
+\State $\calA_r = \emptyset$
+\State $\hat{B}_r = \emptyset$ %\Comment{Stores the tree predictions}
+\For{$p \in \calP$}
+\State Remove $p$ from $\calP$
+\State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
+\State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
+\State Train a decision tree with \texttt{n\_nodes} nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
+\State Add the \texttt{n\_nodes} partitions defined by $t_p$ to $\calA_r$
+\State Add the prediction from $t_p$ for each partition to $\hat{B}_r$.
+\EndFor
+\If{$|\calP| > \eta^2$}
+\State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta^2}$ of $\hat{B}_r$
+\Else 
+\State Let $\hat{p}$ be the element of $\calP$ with the best prediction
+\State \Return $\textproc{MidPoint}(\hat{p})$
+\EndIf
+\State $\texttt{n\_nodes} = \eta$
+\EndFor
+
+\EndProcedure
+\end{algorithmic}
+
+\end{algorithm}
+\subsection{PartitionTree}
+
+\subsubsection{Algorithm}
+
+\begin{algorithm}[H]
+\caption{PartitionTree}
+\label{part_tree}
+\begin{algorithmic}
+\Procedure{PartitionTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, rounds $R$}
+\State $m = \eta^2$
+\State $\calP = \{\calX\}$
+\For{$r=1,\ldots,R$}
+The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| R} \right \rfloor$
+\State $\calA_r = \emptyset$
+\State $\hat{B}_r = \emptyset$ %\Comment{Stores the tree predictions}
+\For{$p \in \calP$}
+\State Remove $p$ from $\calP$
+\State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
+\State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
+\State Train a decision tree with $m$ nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
+\State Add the $m$ partitions defined by $t_p$ to $\calA_r$
+\State Add the prediction from $t_p$ for each partition to $\hat{B}_r$.
+\EndFor
+\State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta}$ of $\hat{B}_r$
+\State Let $\hat{p}$ be the element of $\calP$ with the best prediction
+\State $m = \eta$
+\EndFor
+\State \Return $\textproc{MidPoint}(\hat{p})$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\section{Empirical Evaluation}
+
+\section{Conclusion}
+
+
+% Acknowledgements should go at the end, before appendices and references
+
+\acks{We would like to acknowledge }
+
+
+\newpage
+
+\appendix
+\section*{Appendix A.}
+
+\vskip 0.2in
+\bibliography{sample}
+
+\end{document}
