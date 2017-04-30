@@ -163,7 +163,7 @@ bayes_opt_growing_halving <- function(objective, noise_model, bounds, limit) {
 ## Bayesian optimization with a growing number of experiments and samples
 ## Use the number of rounds Hyperband_3 gets
 bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
-    s_max < floor(logb(floor(1 /3 * exp(2 * emdbook::lambertW_base(sqrt(3) *
+    s_max <- floor(logb(floor(1 /3 * exp(2 * emdbook::lambertW_base(sqrt(3) *
                                                       sqrt(limit) * log(3) / 2) +
                                .27)), 3))
     n_values <- 0
@@ -172,6 +172,10 @@ bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
     print(n_values)
     return(list(bayes_opt(objective, noise_model, n_samples, n_values,
                           bounds, n_init=2))    )
+}
+
+seq_tree_fixed_prop <- function(objective, noise_model, bounds, limit) {
+    max_nodes <- 
 }
 
 ## Sequential Tree with a certain number of trees

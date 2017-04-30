@@ -118,7 +118,7 @@ arg_max_in_partition_exp <- function(algorithm, resources, n_per_resource,
                                      objective, noise_model, bounds,
                                      true_arg_max, eta, nodes_or_rounds, n_tree) {
 
-    print(c(eta, n_tree, max_nodes))
+    print(c(eta, n_tree, nodes_or_rounds))
     
     results <- vapply(resources,
                       function(x)
@@ -133,7 +133,7 @@ arg_max_in_partition_exp <- function(algorithm, resources, n_per_resource,
                                                       box_runif,
                                                       x,
                                                       eta,
-                                                      max_nodes,
+                                                      nodes_or_rounds,
                                                       n_tree)[[3]]))),
                       double(3))
     #results <- data.frame(t(results))
@@ -180,15 +180,17 @@ arg_max_in_partition_mult_exp <- function(algorithm, resources,
 
     grid <- expand.grid(etas, nodes_or_rounds, n_trees)
     dat <- as.data.frame(t(mapply(
-        function(eta, node_or_round, n_tree) arg_max_in_partition_exp(resources,
-                                               n_per_resource,
-                                               objective,
-                                               noise_model,
-                                               bounds,
-                                               true_arg_max,
-                                               eta,
-                                               nore_or_round,
-                                               n_tree),
+        function(eta, node_or_round, n_tree)
+            arg_max_in_partition_exp(algorithm,
+                                     resources,
+                                     n_per_resource,
+                                     objective,
+                                     noise_model,
+                                     bounds,
+                                     true_arg_max,
+                                     eta,
+                                     node_or_round,
+                                     n_tree),
         grid$Var1,
         grid$Var2,
         grid$Var3)))
@@ -288,7 +290,8 @@ correct_per_round_mult_exp <- function(resources, n_per_resource, objective,
 
 seq_tree_arg_max <- function(budget, n_exps) {
     max_max_nodes <- floor(exp(emdbook::lambertW_base(2 * budget * log(2)) - .1))
-    res <- arg_max_in_partition_mult_exp(c(budget),
+    res <- arg_max_in_partition_mult_exp(sequential_tree,
+                                         c(budget),
                                          50,
                                          neg_branin,
                                          "gaussian",
@@ -301,7 +304,6 @@ seq_tree_arg_max <- function(budget, n_exps) {
     res$log.error <- log10(res$f.error)
     res$log.side.length <- log10(res$max.side.length)
     res$eta <- as.factor(res$eta)
-    return(res)
     # make a plot
     melt_res <- reshape2::melt(res[,c("percent.true", "log.side.length", "eta",
                                       "max_nodes", "log.error")],
@@ -319,5 +321,5 @@ seq_tree_arg_max <- function(budget, n_exps) {
         ylab("") +
         scale_color_brewer("Eta", pallette = "Set1")
                        
-    return(res)
+    return(list(res, plt))
 }
