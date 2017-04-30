@@ -174,9 +174,6 @@ bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
                           bounds, n_init=2))    )
 }
 
-seq_tree_fixed_prop <- function(objective, noise_model, bounds, limit) {
-    max_nodes <- 
-}
 
 ## Sequential Tree with a certain number of trees
 seq_tree_eta_n_tree <- function(objective, noise_model, bounds, limit, eta,
