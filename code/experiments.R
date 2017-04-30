@@ -90,8 +90,8 @@ summarize_results <- function(melted_results) {
                        log.mean = mean(log.val[!is.na(log.val)]),
                        log.sd = sd(log.val[!is.na(log.val)]),
                        log.se = log.sd / sqrt(N),
-                       upper.quantile = quantile(value[!is.na(value), 3/4),
-                       lower.quantile = quantile(value[!is.na(value), 1/4)))
+                       upper.quantile = quantile(value[!is.na(value)], 3/4),
+                       lower.quantile = quantile(value[!is.na(value)], 1/4)))
 }
 
 plot_summary_exp <- function(results) {
