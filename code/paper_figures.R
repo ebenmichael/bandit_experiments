@@ -3,6 +3,12 @@ source("experiments.R")
 source("random_forest_opt.R")
 source("optimization.R")
 library(ggplot2)
+
+### Berkeley color palette
+berk_palette <- c("#003262", "#FDB515", "#C4820E", "#3B7EA1",
+                  "#D9661F", "#ED4E33", "#00A598")
+
+
 ### functions and bounds for testing
 
 ## Branin function for testing optimization
@@ -98,6 +104,47 @@ bandit_opt_branin_gaus <- function(n_per_resource) {
     
 }
 
+bayes_opt_hart3_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian", hart3_bd, hart3_max,
+                            c("bayes_opt_growing_halving",
+                              "bayes_opt_growing_hyper"),
+                            "negative.hartmann.3")
+    return(res)
+}
+
+bandit_opt_hart3_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian", hart3_bd, hart3_max,
+                            c("hyperband_3",
+                              "hyperband_4",
+                              "seq_halving_max_rand",
+                              "seq_halving_100_rand"),
+                            "negative.hartmann.3")
+    return(res)
+    
+}
+
+bayes_opt_hart6_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian", hart6_bd, hart6_max,
+                            c("bayes_opt_growing_halving",
+                              "bayes_opt_growing_hyper"),
+                            "negative.hartmann.6")
+    return(res)
+}
+
+bandit_opt_hart6_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian", hart6_bd, hart6_max,
+                            c("hyperband_3",
+                              "hyperband_4",
+                              "seq_halving_max_rand",
+                              "seq_halving_100_rand"),
+                            "negative.hartmann.6")
+    return(res)
+    
+}
 
 ### More fine grained experiments for sequential tree
 
@@ -308,6 +355,7 @@ seq_tree_arg_max <- function(budget, n_exps) {
     melt_res <- reshape2::melt(res[,c("percent.true", "log.side.length", "eta",
                                       "max_nodes", "log.error")],
                                id.vars=c("eta","max_nodes"))
+    
     plt <- ggplot(melt_res, aes(x=max_nodes, y=value, color=eta)) +
         geom_point() + geom_line(size=1.5) +
         facet_grid(variable ~ . , scales="free_y",
@@ -319,7 +367,8 @@ seq_tree_arg_max <- function(budget, n_exps) {
         theme_minimal() +
         xlab("Number of Elements in Initial Partition") +
         ylab("") +
-        scale_color_brewer("Eta", pallette = "Set1")
+        scale_color_manual(values=berk_palette) +
+        title("SequentialTree Performance with 10,000 Samples on the Branin Function")
                        
     return(list(res, plt))
 }

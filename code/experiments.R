@@ -72,13 +72,15 @@ run_mult_opt_exp <- function(resources, n_per_resource, objective,
 
 summary_exp <- function(results) {
     melted_results <- reshape2::melt(results,
-                                     id.vars=c("n_resources", "algorithm"))
+                                     id.vars=c("n_resources", "algorithm",
+                                               "noise_model", "objective"))
     melted_results$log.val <- log10(melted_results$value)
     return(summarize_results(melted_results))
 }
 
 summarize_results <- function(melted_results) {
-    return(plyr::ddply(melted_results, c("n_resources","algorithm"),
+    return(plyr::ddply(melted_results, c("n_resources","algorithm",
+                                         "noise_model", "objective"),
                        summarize,
                        N = length(!is.na(value)),
                        mean = mean(value[!is.na(value)]),                       
@@ -87,7 +89,9 @@ summarize_results <- function(melted_results) {
                        se = sd / sqrt(N),
                        log.mean = mean(log.val),
                        log.sd = sd(log.val),
-                       log.se = log.sd / N))
+                       log.se = log.sd / N,
+                       upper.quantile = quantile(value, 3/4),
+                       lower.quantile = quantile(value, 1/4)))
 }
 
 plot_summary_exp <- function(results) {
@@ -98,13 +102,14 @@ plot_summary_exp <- function(results) {
 plot_summarized_results <- function(summary_res) {
     return(ggplot(summary_res, aes(x=log10(n_resources), y=median, color=algorithm)) +
         geom_line() +
-        geom_errorbar(aes(ymin=mean-1.96 * se,
-                          ymax=mean+1.96*se),
+        geom_errorbar(aes(ymin=lower.quantile,
+                          ymax=upper.quantile),
                       width=.1) +
         geom_point() +
         scale_y_log10() + 
         xlab("Total Number of Samples (Log Scale)") +
-        ylab("Function Error (Log Scale)"))
+        ylab("Function Error (Log Scale)") +
+        facet_grid(objective ~ noise_model))
 
 }
 
@@ -174,6 +179,18 @@ bayes_opt_growing_hyper <- function(objective, noise_model, bounds, limit) {
                           bounds, n_init=2))    )
 }
 
+seq_tree_fixed_prop <- function(objective, noise_model, bounds, limit) {
+    max_nodes <- limit / 20
+    return(sequential_tree(objective,
+                           noise_model,
+                           bounds,
+                           box_runif,
+                           limit,
+                           2,
+                           max_nodes,
+                           1))
+    
+}
 
 ## Sequential Tree with a certain number of trees
 seq_tree_eta_n_tree <- function(objective, noise_model, bounds, limit, eta,
