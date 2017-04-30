@@ -104,6 +104,18 @@ bandit_opt_branin_gaus <- function(n_per_resource) {
     
 }
 
+tree_opt_branin_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
+                            "gaussian", bran_bd, bran_max,
+                            c("seq_tree_1_tree",
+                              "seq_tree_fixed_prop",
+                              "partition_tree_growing_4",
+                              "partition_tree_fixed_4",
+                              "partition_tree_growing_3"),
+                            "negative.branin")
+    
+}
+
 bayes_opt_hart3_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
                             "gaussian", hart3_bd, hart3_max,
@@ -122,6 +134,18 @@ bandit_opt_hart3_gaus <- function(n_per_resource) {
                               "seq_halving_100_rand"),
                             "negative.hartmann.3")
     return(res)
+    
+}
+
+tree_opt_hart3_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian", hart3_bd, hart3_max,
+                            c("seq_tree_1_tree",
+                              "seq_tree_fixed_prop",
+                              "partition_tree_growing_4",
+                              "partition_tree_fixed_4",
+                              "partition_tree_growing_3"),
+                            "negative.hartmann.3")
     
 }
 
@@ -144,6 +168,18 @@ bandit_opt_hart6_gaus <- function(n_per_resource) {
                               "seq_halving_100_rand"),
                             "negative.hartmann.6")
     return(res)
+    
+}
+
+tree_opt_hart6_gaus <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian", hart6_bd, hart6_max,
+                            c("seq_tree_1_tree",
+                              "seq_tree_fixed_prop",
+                              "partition_tree_growing_4",
+                              "partition_tree_fixed_4",
+                              "partition_tree_growing_3"),
+                            "negative.hartmann.6")
     
 }
 
@@ -251,86 +287,69 @@ arg_max_in_partition_mult_exp <- function(algorithm, resources,
 
 #' Count the proportion of times that seq tree doesn't throw away the arg max
 #' 
-#' @param resources Vector of resources levels to try
-#' @param n_per_resources Number of times to optimize at each resource level
+#' @param algorithm The algorithm to run, {sequential, partition}_tree
+#' @param limit Number of resources to use
+#' @param n_per_resources Number of times to try optimizing
 #' @param objective The objective function to maximize
 #' @param noise_model The distribution of the noise
 #' @param bounds A d x 2 matrix of box constraints for each variable
-#' @param true_arg_max A matrix of true arg maxes to compare to
+#' @param true_max The true maximum
 #' @param eta Amount to cut the number of boxes by
+#' @param nodes_or_rounds The maximum number of leaf nodes per tree or rounds
 #' @param n_tree Number of trees in forest
-correct_per_round_exp <- function(resources, n_per_resource, objective,
-                                     noise_model, bounds, true_arg_max, eta,
-                                     n_tree) {
+error_per_round_exp <- function(algorithm, limit, n_per_resource, objective,
+                                noise_model, bounds, true_max, eta,
+                                nodes_or_rounds, n_tree) {
 
     print(c(eta, n_tree))
-    partial_algo <- pryr::partial(seq_tree_eta_n_tree,
-                                  objective=objective,
-                                  noise_model=noise_model,
-                                  bounds=bounds,
-                                  eta=eta,
-                                  n_tree=n_tree)
     
-    results <- sapply(resources,
-                      function(x)
-                          rowMeans(
-                              replicate(n_per_resource,
-                                        sapply(partial_algo(x)[[4]],
-                                               function(part)
-                                                   max(
-                                                       apply(
-                                                           part,
-                                                           3,
-                                                           function(box)
-                                                               contains_arg_max(
-                                                                   true_arg_max,
-                                                                   box)[1]))))))
-    if(is.list(results)) {
-        results <- plyr::ldply(1:length(resources),
-                               function(i)
-                                   data.frame(pct.contain=results[[i]],
-                                              round=1:length(results[[i]]),
-                                              n_resources=resources[i],
-                                              eta=eta,
-                                              n_tree=n_tree))
-    }
-    else {
-        results <- data.frame(pct.contain = results,
-                              round = 1:dim(results)[1],
-                              n_resources = resources[1],
-                              eta = eta,
-                              n_tree = n_tree)
-    }
+    results <- replicate(n_per_resource, apply(
+                                             algorithm(objective,
+                                                       noise_model,
+                                                       bounds,
+                                                       box_runif,
+                                                       limit,
+                                                       eta,
+                                                       nodes_or_rounds,
+                                                       n_tree)[[4]],
+                                             1,
+                                             function(x) true_max - objective(x)))
+                                                        
+    results <- data.frame(results)
+    results$round <- 1:dim(results)[1]
+    results$eta <- rep(eta, dim(results)[1])
     return(results)
 }
 
 #' Count the proportion of times that seq tree doesn't throw away the arg max,
 #' for various etas and number of trees
 #' 
-#' @param resources Vector of resources levels to try
-#' @param n_per_resources Number of times to optimize at each resource level
+#' @param algorithm The algorithm to run, {sequential, partition}_tree
+#' @param limit Number of resources to use
+#' @param n_per_resources Number of times to try optimizing
 #' @param objective The objective function to maximize
 #' @param noise_model The distribution of the noise
 #' @param bounds A d x 2 matrix of box constraints for each variable
-#' @param true_arg_max A matrix of true arg maxes to compare to
-#' @param etas Vector of amount to cut the number of boxes by
-#' @param n_trees Vector of number of trees in forest
-correct_per_round_mult_exp <- function(resources, n_per_resource, objective,
-                                       noise_model, bounds, true_arg_max, etas,
-                                       n_trees) {
-    grid <- expand.grid(etas, n_trees)
+#' @param true_max The true maximum
+#' @param etas Vector of amounts to cut the number of boxes by
+#' @param nodes_or_rounds The maximum number of leaf nodes per tree or rounds
+#' @param n_tree Number of trees in forest
+error_per_round_mult_exp <- function(algorithm, limit, n_per_resource, objective,
+                                       noise_model, bounds, true_max, etas,
+                                       nodes_or_rounds, n_tree) {
     return(plyr::ldply(
-        1:dim(grid)[1],
-        function(i)
-            correct_per_round_exp(resources,
-                                  n_per_resource,
-                                  objective,
-                                  noise_model,
-                                  bounds,
-                                  true_arg_max,
-                                  grid[i,1],
-                                  grid[i,2])))
-
+        etas,
+        function(eta)
+            error_per_round_exp(algorithm,
+                                limit,
+                                n_per_resource,
+                                objective,
+                                noise_model,
+                                bounds,
+                                true_max,
+                                eta,
+                                nodes_or_rounds,
+                                n_tree)))
 }
 
 
@@ -345,13 +364,14 @@ seq_tree_arg_max <- function(budget, n_exps) {
                                          "gaussian",
                                          bran_bd,
                                          bran_arg_max,
-                                         c(2,3),
+                                         c(4),
                                          round(seq(10,max_max_nodes,
                                                    length.out=n_exps)),
                                          c(1))
     res$log.error <- log10(res$f.error)
     res$log.side.length <- log10(res$max.side.length)
     res$eta <- as.factor(res$eta)
+    return(res)
     # make a plot
     melt_res <- reshape2::melt(res[,c("percent.true", "log.side.length", "eta",
                                       "max_nodes", "log.error")],
@@ -411,4 +431,100 @@ part_tree_arg_max <- function(budget, n_exps) {
         ggtitle("PartitionTree Performance with 10,000 Samples on the Branin Function")
                        
     return(list(res, plt))
+}
+
+
+seq_tree_error_per_round <- function(budget, n_exps) {
+    max_nodes <- budget / 20
+    results <- error_per_round_mult_exp(sequential_tree,
+                                       budget,
+                                       n_exps,
+                                       neg_branin,
+                                       "gaussian",
+                                       bran_bd,
+                                       bran_max,
+                                       c(2,3,4),
+                                       max_nodes,
+                                       1)
+    results$eta <- as.factor(results$eta)
+    melted_results <- reshape2::melt(results,
+                                     id.vars=c("eta", "round"))
+    melted_results$log.val <- log10(melted_results$value)
+
+    summary <- plyr::ddply(melted_results, c("eta", "round"),
+                       summarize,
+                       N = length(!is.na(value)),
+                       mean = mean(value[!is.na(value)]),                       
+                       median = median(value[!is.na(value)]),
+                       sd = sd(value[!is.na(value)]),
+                       se = sd / sqrt(N),
+                       log.mean = mean(log.val[!is.na(log.val)]),
+                       log.sd = sd(log.val[!is.na(log.val)]),
+                       log.se = log.sd / sqrt(N),
+                       upper.quantile = quantile(value[!is.na(value)], 3/4),
+                       lower.quantile = quantile(value[!is.na(value)], 1/4))
+
+    plt <- ggplot(summary, aes(x=round, y=mean, color=eta)) +
+        geom_point() +
+        geom_line(size=1.5) +
+        geom_errorbar(aes(ymin=mean+1.96*se,
+                          ymax=mean-1.96*se),
+                      width=.3) +
+        theme_minimal() +
+        xlab("Round") +
+        ylab("Function Error (Log Scale)") +
+        scale_color_manual(values=berk_palette) +
+        scale_y_log10() +
+        scale_x_continuous(breaks=1:max(results$round)) +
+        ggtitle("SequentialTree Accuracy with 10,000 Samples on the Branin Function")
+    
+    return(result)
+}
+
+part_tree_error_per_round <- function(budget, n_exps) {
+    max_rounds <- floor(sqrt(budget / 10))
+    results <- error_per_round_mult_exp(partition_tree,
+                                       budget,
+                                       n_exps,
+                                       neg_branin,
+                                       "gaussian",
+                                       bran_bd,
+                                       bran_max,
+                                       c(2,3,4,5),
+                                       max_rounds,
+                                       10)
+    results$eta <- as.factor(results$eta)
+
+    melted_results <- reshape2::melt(results,
+                                     id.vars=c("eta", "round"))
+    melted_results$log.val <- log10(melted_results$value)
+
+    summary <- plyr::ddply(melted_results, c("eta", "round"),
+                       summarize,
+                       N = length(!is.na(value)),
+                       mean = mean(value[!is.na(value)]),                       
+                       median = median(value[!is.na(value)]),
+                       sd = sd(value[!is.na(value)]),
+                       se = sd / sqrt(N),
+                       log.mean = mean(log.val[!is.na(log.val)]),
+                       log.sd = sd(log.val[!is.na(log.val)]),
+                       log.se = log.sd / sqrt(N),
+                       upper.quantile = quantile(value[!is.na(value)], 3/4),
+                       lower.quantile = quantile(value[!is.na(value)], 1/4))
+
+    plt <- ggplot(summary, aes(x=round, y=mean, color=eta)) +
+        geom_point() +
+        geom_line(size=1.5) +
+        geom_errorbar(aes(ymin=mean+1.96*se,
+                          ymax=mean-1.96*se),
+                      width=.3) +
+        theme_minimal() +
+        xlab("Round") +
+        ylab("Function Error (Log Scale)") +
+        scale_color_manual(values=berk_palette) +
+        scale_y_log10() +
+        scale_x_continuous(breaks=1:max(results$round)) +
+        ggtitle("PartitionTree Accuracy with 10,000 Samples on the Branin Function")
+    
+    return(list(results, plt))
 }

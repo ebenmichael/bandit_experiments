@@ -140,11 +140,9 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
     dimension <- dim(bounds)[1]
     # create a partition with only one element, the whole space
     partition <- array(bounds, dim=c(dim(bounds), 1))
-    # keep track of partitions to look at later
-    partitions <- list()
-    for( r in 1:(floor(logb(n_arms, eta)))) {
-        #print(r)
-        #print(dim(partition))
+    # keep track of the current best guess
+    curr_best <- matrix(0, nrow=ceiling(logb(n_arms, eta)), ncol=dim(bounds)[1])
+    for( r in 1:ceiling(logb(n_arms, eta))) {
         # number of times to pull each disjoint partition
         n_pulls <- floor(budget / (dim(partition)[3] * ceiling(logb(n_arms, eta))))
         #print(n_pulls)
@@ -175,12 +173,13 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
                              function(x) t(apply(x, 3, rowMeans)))
         preds <- unlist(mapply(predict, rfs, mid_points))
         n_partitions <- length(preds)
-        #print(n_partitions)
+
+        best_partition <- which.max(preds)
+        max_pred <- preds[best_partition]
+        curr_best[r,] <- rowMeans(array(do.call(abind::abind,
+                                                tree_partitions)[,, best_partition],
+                                        dim=dim(partition)[1:2]))
         if(n_partitions <= eta ^ 2) {
-            best_partition <- which.max(preds)
-            max_pred <- preds[best_partition]
-            #print(best_partition)
-            #print(partition)
             partition <- array(do.call(abind::abind,
                                        tree_partitions)[,, best_partition],
                                dim=c(dim(partition)[1:2], 1))
@@ -189,16 +188,15 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
                         partial=n_partitions -
                             floor(n_partitions/(eta ^ 2)) +
                             1)[n_partitions - floor(n_partitions / (eta ^ 2)) + 1]
-            #print(top)
+
             keep_bool <- preds >= top
-                                        #print(keep_bool)
+            
             partition <- do.call(abind::abind, tree_partitions)[,, keep_bool]
             if(length(dim(partition)) == 2) {
                 partition <- array(partition, dim=c(dim(partition), 1))
             }
         }
-        partitions[[r]] <- partition
-        #print(partition)
+
         # set max_nodes to 2, always dividing the current partitions into eta
         max_nodes = eta
         #print("----")
@@ -206,7 +204,7 @@ sequential_tree <- function(objective, noise_model, bounds, get_values, budget,
     return(list(rowMeans(partition[,,1]),
                 max_pred,
                 partition[,,1],
-                partitions))
+                curr_best))
 }
 
 
@@ -268,6 +266,8 @@ partition_tree <- function(objective, noise_model, bounds, get_values, budget,
     dimension <- dim(bounds)[1]
     # create a partition with only one element, the whole space
     partition <- array(bounds, dim=c(dim(bounds), 1))
+    # keep track of the current best guess
+    curr_best <- matrix(0, nrow=rounds, ncol=dim(bounds)[1])
     for( r in 1:rounds) {
         #print(r)
         #print(dim(partition))
@@ -313,6 +313,7 @@ partition_tree <- function(objective, noise_model, bounds, get_values, budget,
         #print(partition)        
         best_partition_idx <- which.max(preds)
         best_partition <- partition[,, best_partition_idx]
+        curr_best[r,] <- rowMeans(best_partition)
         partition <- partition[,, keep_bool]
         #print("-")
         #print(partition)
@@ -320,12 +321,20 @@ partition_tree <- function(objective, noise_model, bounds, get_values, budget,
         # if the volume gets too small, return the middle of the box
         volume <- sum(apply(apply(partition,1, diff), 1, prod))
         if(volume < sqrt(.Machine$double.eps)) {
-            return(list(rowMeans(best_partition), max(preds), partition[,,1]))
+            if(r < dim(curr_best)[1]) {
+                remaining_idxs <- (r+1):dim(curr_best)[1]
+                curr_best[remaining_idxs,] <- matrix(curr_best[r,],
+                                                     nrow=length(remaining_idxs),
+                                                     ncol=dim(curr_best)[2],
+                                                     byrow=TRUE)
+            }
+            return(list(rowMeans(best_partition), max(preds), partition[,,1],
+                        curr_best))
         }
         
         # set max_nodes to 2, always dividing the current partitions into eta
         max_nodes <- eta
         #print("----")
     }
-    return(list(rowMeans(best_partition), max(preds), partition[,,1]))
+    return(list(rowMeans(best_partition), max(preds), partition[,,1], curr_best))
 }

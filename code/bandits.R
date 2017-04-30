@@ -542,7 +542,7 @@ sequential_halving <- function(bandit, budget) {
     all_idxs <- rep(NA, 1000)
     n_samples <- rep(NA, 1000)
     j <- 1
-    for(r in 1:(ceiling(log2(n_arms))-1)) {
+    for(r in 1:ceiling(log2(n_arms))) {
 
         n_pulls <- floor(budget / (length(remaining) * ceiling(log2(n_arms))))
         # book keeping

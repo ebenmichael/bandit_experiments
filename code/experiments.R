@@ -288,6 +288,14 @@ partition_tree_fixed_3 <- function(objective, noise_model, bounds, limit) {
                           3))
 }
 
+partition_tree_fixed_4 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_fixed_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          4))
+}
+
 ## Partition tree with a growing number of rounds
 partition_tree_growing_eta <- function(objective, noise_model, bounds, limit, eta) {
     rounds <- floor(sqrt(limit / 20))
@@ -298,7 +306,7 @@ partition_tree_growing_eta <- function(objective, noise_model, bounds, limit, et
                           limit,
                           eta,
                           rounds,
-                          1))
+                          10))
 }
 
 partition_tree_growing_2 <- function(objective, noise_model, bounds, limit) {
@@ -317,6 +325,13 @@ partition_tree_growing_3 <- function(objective, noise_model, bounds, limit) {
                           3))
 }
 
+partition_tree_growing_4 <- function(objective, noise_model, bounds, limit) {
+    return(partition_tree_growing_eta(objective,
+                          "gaussian",
+                          bounds,
+                          limit,
+                          4))
+}
 
 tree_seq_halving_prop <- function(objective, noise_model, bounds, limit,
                                   proportion) {
