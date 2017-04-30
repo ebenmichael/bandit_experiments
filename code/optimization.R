@@ -185,52 +185,37 @@ bayes_opt <- function(objective, noise_model, n_samples, n_values,
         if(is.na(gp)) return(NA)
         # compute the maximum of the mean function
         print("Finding max of mean function")
-        arg_max_mu <- rgenoud::genoud(function(x) predict(gp, t(x))$mean,
-                                      dim(values)[2],
-                                      max=TRUE,
-                                      Domains=bounds,
-                                      boundary.enforcement = 1,
-                                      print.level=0,
-                                      gradient.check=FALSE,
-                                      pop.size=10)$par
-        #arg_max_mu <- gosolnp(fun=function(x) -predict(gp, t(x))$mean,
-        #                      LB=bounds[,1],
-        #                      UB=bounds[,2],
-        #                      n.sim = 10,
-        #                      n.restarts = 10)$pars
-        #arg_max_mu <- random_restart_max(function(x) predict(gp, t(x))$mean,
-        #                                 bounds, 10)
-        #print(arg_max_mu)
-        #arg_max_mu <- optim(as.vector(apply(bounds, 1,
-        #                                    function(x) runif(1,x[1],x[2]))),
-        #                    function(x) predict(gp,t(x))$mean)$par
+        tryCatch({ arg_max_mu <<- rgenoud::genoud(function(x) predict(gp,
+                                                                      t(x))$mean,
+                                                  dim(values)[2],
+                                                  max=TRUE,
+                                                  Domains=bounds,
+                                                  boundary.enforcement = 1,
+                                                  print.level=0,
+                                                  gradient.check=FALSE,
+                                                  pop.size=10)$par
+        }, error = function(e) {
+            arg_max_mu <<- NA
+        })
+        if(is.na(arg_max_mu)) return(NA)
         max_mu <- predict(gp, t(arg_max_mu))$mean
-        #print(max_mu)
+        
         # optimize expected improvement
         print("Optimizing EI")
-        next_x <- t(rgenoud::genoud(function(x) expected_improvement(gp,
-                                                                    t(x),
-                                                                    max_mu),
-                                   dim(values)[2], max=TRUE,
-                                   Domains=bounds,
-                                   boundary.enforcement = 1,
-                                   gradient.check=FALSE,
-                                   print.level=0,
-                                   pop.size=100)$par)
-        #next_x <- t(optim(as.vector(apply(bounds, 1,
-        #                                  function(x) runif(1,x[1],x[2]))),
-        #                  function(x) expected_improvement(gp,
-        #                                                   t(x),
-        #                                                   max_mu))$par)
-        #next_x <- t(gosolnp(fun=function(x) -expected_improvement(gp,
-        #                                                         t(x),
-        #                                                         max_mu),
-        #                    LB= bounds[,1],
-        #                    UB=bounds[,2],
-        #                    n.sim=10,
-        #                    n.restarts=10)$pars)
-        #print(next_x)
-        # sample from next_x and fit
+        tryCatch({next_x <<- t(rgenoud::genoud(function(x)
+            expected_improvement(gp,
+                                 t(x),
+                                 max_mu),
+            dim(values)[2], max=TRUE,
+            Domains=bounds,
+            boundary.enforcement = 1,
+            gradient.check=FALSE,
+            print.level=0,
+            pop.size=100)$par)
+        }, error = function(e) {
+            next_x <<- NA
+        })
+        if(is.na(next_x)) return(NA)
         values[i,] <- next_x
         targets[i] <- mean(sample_function(objective,
                                            noise_model, next_x, n_samples))

@@ -320,11 +320,12 @@ partition_tree <- function(objective, noise_model, bounds, get_values, budget,
         # if the volume gets too small, return the middle of the box
         volume <- sum(apply(apply(partition,1, diff), 1, prod))
         if(volume < sqrt(.Machine$double.eps)) {
-            return(rowMeans(best_partition))
+            return(list(rowMeans(best_partition), max(preds), partition[,,1]))
         }
+        
         # set max_nodes to 2, always dividing the current partitions into eta
         max_nodes <- eta
         #print("----")
     }
-    return(rowMeans(best_partition))
+    return(list(rowMeans(best_partition), max(preds), partition[,,1]))
 }

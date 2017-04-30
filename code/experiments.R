@@ -87,11 +87,11 @@ summarize_results <- function(melted_results) {
                        median = median(value[!is.na(value)]),
                        sd = sd(value[!is.na(value)]),
                        se = sd / sqrt(N),
-                       log.mean = mean(log.val),
-                       log.sd = sd(log.val),
-                       log.se = log.sd / N,
-                       upper.quantile = quantile(value, 3/4),
-                       lower.quantile = quantile(value, 1/4)))
+                       log.mean = mean(log.val[!is.na(log.val)]),
+                       log.sd = sd(log.val[!is.na(log.val)]),
+                       log.se = log.sd / sqrt(N),
+                       upper.quantile = quantile(value[!is.na(value), 3/4),
+                       lower.quantile = quantile(value[!is.na(value), 1/4)))
 }
 
 plot_summary_exp <- function(results) {

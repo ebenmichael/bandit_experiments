@@ -135,6 +135,7 @@ bayes_opt_hart6_gaus <- function(n_per_resource) {
 }
 
 bandit_opt_hart6_gaus <- function(n_per_resource) {
+    
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
                             "gaussian", hart6_bd, hart6_max,
                             c("hyperband_3",
@@ -368,7 +369,46 @@ seq_tree_arg_max <- function(budget, n_exps) {
         xlab("Number of Elements in Initial Partition") +
         ylab("") +
         scale_color_manual(values=berk_palette) +
-        title("SequentialTree Performance with 10,000 Samples on the Branin Function")
+        ggtitle("SequentialTree Performance with 10,000 Samples on the Branin Function")
+                       
+    return(list(res, plt))
+}
+
+part_tree_arg_max <- function(budget, n_exps) {
+    max_rounds <- floor(sqrt(budget / 20))
+    res <- arg_max_in_partition_mult_exp(partition_tree,
+                                         c(budget),
+                                         50,
+                                         neg_branin,
+                                         "gaussian",
+                                         bran_bd,
+                                         bran_arg_max,
+                                         c(2,3,4),
+                                         round(seq(5, max_rounds,
+                                                   length.out=n_exps)),
+                                         c(10))
+    res$log.error <- log10(res$f.error)
+    res$log.side.length <- log10(res$max.side.length)
+    res$eta <- as.factor(res$eta)
+    return(res)
+    # make a plot
+    melt_res <- reshape2::melt(res[,c("percent.true", "log.side.length", "eta",
+                                      "max_nodes", "log.error")],
+                               id.vars=c("eta","max_nodes"))
+    
+    plt <- ggplot(melt_res, aes(x=max_nodes, y=value, color=eta)) +
+        geom_point() + geom_line(size=1.5) +
+        facet_grid(variable ~ . , scales="free_y",
+                   labeller = as_labeller(
+                       c("percent.true" = "Proportion Containing Arg Max",
+                         "log.side.length" =
+                             "Average Side Length (Log Scale)",
+                         "log.error" = "Function Error (Log Scale)"))) +
+        theme_minimal() +
+        xlab("Number of Rounds") +
+        ylab("") +
+        scale_color_manual(values=berk_palette) +
+        ggtitle("PartitionTree Performance with 10,000 Samples on the Branin Function")
                        
     return(list(res, plt))
 }
