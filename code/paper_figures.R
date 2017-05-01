@@ -182,6 +182,90 @@ tree_opt_hart6_gaus <- function(n_per_resource) {
 }
 
 
+
+bayes_opt_branin_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
+                            "gaussian_high", bran_bd, bran_max,
+                            c("bayes_opt_growing_hyper"),
+                            "negative.branin")
+    return(res)
+}
+
+bandit_opt_branin_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
+                            "gaussian_high", bran_bd, bran_max,
+                            c("hyperband_4",
+                              "seq_halving_max_rand"),
+                            "negative.branin")
+    return(res)
+    
+}
+
+tree_opt_branin_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
+                            "gaussian_high", bran_bd, bran_max,
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
+                            "negative.branin")
+    
+}
+
+bayes_opt_hart3_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian_high", hart3_bd, hart3_max,
+                            c("bayes_opt_growing_hyper"),
+                            "negative.hartmann.3")
+    return(res)
+}
+
+bandit_opt_hart3_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian_high", hart3_bd, hart3_max,
+                            c("hyperband_4",
+                              "seq_halving_max_rand"),
+                            "negative.hartmann.3")
+    return(res)
+    
+}
+
+tree_opt_hart3_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
+                            "gaussian_high", hart3_bd, hart3_max,
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
+                            "negative.hartmann.3")
+    
+}
+
+bayes_opt_hart6_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian_high", hart6_bd, hart6_max,
+                            c("bayes_opt_growing_hyper"),
+                            "negative.hartmann.6")
+    return(res)
+}
+
+bandit_opt_hart6_high <- function(n_per_resource) {
+    
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian_high", hart6_bd, hart6_max,
+                            c("hyperband_4",
+                              "seq_halving_max_rand"),
+                            "negative.hartmann.6")
+    return(res)
+    
+}
+
+tree_opt_hart6_high <- function(n_per_resource) {
+    res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
+                            "gaussian_high", hart6_bd, hart6_max,
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
+                            "negative.hartmann.6")
+    
+}
+
+
 ### plots for the results
 
 summary_exp <- function(results) {
@@ -220,13 +304,22 @@ plot_summarized_results <- function(summary_res) {
                     "bayes_opt_growing_hyper")
     summary_res <- summary_res[summary_res$algorithm %in% keep_algos,]
 
-    noise_names <- c(gaussian = "Gaussian: Variance = 1/4")
+    noise_names <- c(gaussian = "Gaussian: Variance = 1/4",
+                     gaussian_high = "Gaussian: Variance = 4")
     objective_names <- c(negative.branin = "Branin",
                          negative.hartmann.3 = "Hartmann 3D",
                          negative.hartmann.6 = "Hartmann 6D")
-    
+
+    # make a dummy data set for plotting a horizontal line for the variance
+    var_line <- expand.grid(c("gaussian", "gaussian_high"),
+                            c("negative.branin", "negative.hartmann.3",
+                              "negative.hartmann.6"))
+    names(var_line) <- c("noise_model", "objective")
+    var_line$var <- 0
+    var_line[var_line$noise_model == "gaussian", "var"] <- 0.25
+    var_line[var_line$noise_model == "gaussian_high", "var"] <- 4
     plt <- ggplot(summary_res, aes(x=n_resources, y=mean, color=algorithm)) +
-        geom_line(size=2) +
+        geom_line(size=1.5) +
         geom_errorbar(aes(ymin=mean+1.96*se,
                           ymax=mean-1.96*se),
                       width=.1) +
@@ -241,6 +334,7 @@ plot_summarized_results <- function(summary_res) {
                                     "SequentialTree")) +
         xlab("Total Number of Samples (Log Scale)") +
         ylab("Function Error (Log Scale)") +
+        geom_hline(data = var_line, aes(yintercept = var)) + 
         facet_grid(noise_model ~ objective,
                    labeller = labeller(noise_model = noise_names,
                                        objective = objective_names)) +
