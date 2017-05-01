@@ -23,7 +23,7 @@ create_bandit <- function(objective, noise_model, values) {
         # create a normal bandit with variance=1/4 
         return(normal_bandit(obj_values, rep(1/4, n_values)))
     } else if(noise_model == "gaussian_high") {
-        return(normal_bandit(obj_values, rep(4, n_values)))
+        return(normal_bandit(obj_values, rep(5, n_values)))
     } else {
         stop("Only gaussian noise is supported")
     }
@@ -129,7 +129,7 @@ sample_function <- function(objective, noise_model, value, n_samples) {
     if(noise_model == "gaussian") {
         return(t(obj_value + rnorm(n_samples) / 4))
     } else if(noise_model == "gaussian_high") {
-        return(t(obj_value + rnorm(n_samples) * 2))
+        return(t(obj_value + rnorm(n_samples) * 5))
     } else {
         stop("Only gaussian noise is supported")
     }
