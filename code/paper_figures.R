@@ -6,7 +6,8 @@ library(ggplot2)
 
 ### Berkeley color palette
 berk_palette <- c("#003262", "#FDB515", "#C4820E", "#3B7EA1",
-                  "#D9661F", "#ED4E33", "#00A598")
+                  "#D9661F", "#ED4E33", "#00A598", "#46535E",
+                  "#859438", "#EE1F60", "#584F29")
 
 
 ### functions and bounds for testing
@@ -174,14 +175,82 @@ bandit_opt_hart6_gaus <- function(n_per_resource) {
 tree_opt_hart6_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart6,
                             "gaussian", hart6_bd, hart6_max,
-                            c("seq_tree_1_tree",
-                              "seq_tree_fixed_prop",
-                              "partition_tree_growing_4",
-                              "partition_tree_fixed_4",
-                              "partition_tree_growing_3"),
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
                             "negative.hartmann.6")
     
 }
+
+
+### plots for the results
+
+summary_exp <- function(results) {
+    melted_results <- reshape2::melt(results,
+                                     id.vars=c("n_resources", "algorithm",
+                                               "noise_model", "objective"))
+    melted_results$log.val <- log10(melted_results$value)
+    return(summarize_results(melted_results))
+}
+
+summarize_results <- function(melted_results) {
+    return(plyr::ddply(melted_results, c("n_resources","algorithm",
+                                         "noise_model", "objective"),
+                       summarize,
+                       N = length(!is.na(value)),
+                       mean = mean(value[!is.na(value)]),                       
+                       median = median(value[!is.na(value)]),
+                       sd = sd(value[!is.na(value)]),
+                       se = sd / sqrt(N),
+                       log.mean = mean(log.val[!is.na(log.val)]),
+                       log.sd = sd(log.val[!is.na(log.val)]),
+                       log.se = log.sd / sqrt(N),
+                       upper.quantile = quantile(value[!is.na(value)], 3/4),
+                       lower.quantile = quantile(value[!is.na(value)], 1/4)))
+}
+
+plot_summary_exp <- function(results) {
+    summary_res <- summary_exp(results)
+    plot_summarized_results(summary_res)
+}
+
+plot_summarized_results <- function(summary_res) {
+    # only keep some algorithms for clarity
+    keep_algos <- c("seq_tree_fixed_prop", "partition_tree_growing_4",
+                    "hyperband_4", "seq_halving_max_rand",
+                    "bayes_opt_growing_hyper")
+    summary_res <- summary_res[summary_res$algorithm %in% keep_algos,]
+
+    noise_names <- c(gaussian = "Gaussian: Variance = 1/4")
+    objective_names <- c(negative.branin = "Branin",
+                         negative.hartmann.3 = "Hartmann 3D",
+                         negative.hartmann.6 = "Hartmann 6D")
+    
+    plt <- ggplot(summary_res, aes(x=n_resources, y=mean, color=algorithm)) +
+        geom_line(size=2) +
+        geom_errorbar(aes(ymin=mean+1.96*se,
+                          ymax=mean-1.96*se),
+                      width=.1) +
+        geom_point() +
+        scale_y_log10() +
+        scale_x_log10() + 
+        scale_color_manual("", values=berk_palette,
+                           labels=c("Bayesian Optimization",
+                                    "Hyperband",
+                                    "SequentialHalving",
+                                    "PartitionTree",
+                                    "SequentialTree")) +
+        xlab("Total Number of Samples (Log Scale)") +
+        ylab("Function Error (Log Scale)") +
+        facet_grid(noise_model ~ objective,
+                   labeller = labeller(noise_model = noise_names,
+                                       objective = objective_names)) +
+        theme_bw() + 
+        theme(text=element_text(size=30), plot.title = element_text(hjust=0.5),
+              legend.position = "top")
+    return(plt)
+
+}
+
 
 ### More fine grained experiments for sequential tree
 
@@ -466,16 +535,17 @@ seq_tree_error_per_round <- function(budget, n_exps) {
 
     plt <- ggplot(summary, aes(x=round, y=mean, color=eta)) +
         geom_point() +
-        geom_line(size=1.5) +
+        geom_line(size=2) +
         geom_errorbar(aes(ymin=mean+1.96*se,
                           ymax=mean-1.96*se),
                       width=.3) +
-        theme_minimal() +
+        theme_bw() +
         xlab("Round") +
         ylab("Function Error (Log Scale)") +
-        scale_color_manual(values=berk_palette) +
+        scale_color_manual(expression(eta), values=berk_palette) +
         scale_y_log10() +
         scale_x_continuous(breaks=1:max(results$round)) +
+        theme(text=element_text(size=30), plot.title = element_text(hjust=0.5)) + 
         ggtitle("SequentialTree Accuracy with 10,000 Samples on the Branin Function")
     
     return(result)
@@ -514,16 +584,17 @@ part_tree_error_per_round <- function(budget, n_exps) {
 
     plt <- ggplot(summary, aes(x=round, y=mean, color=eta)) +
         geom_point() +
-        geom_line(size=1.5) +
+        geom_line(size=2) +
         geom_errorbar(aes(ymin=mean+1.96*se,
                           ymax=mean-1.96*se),
                       width=.3) +
-        theme_minimal() +
+        theme_bw() +
         xlab("Round") +
         ylab("Function Error (Log Scale)") +
-        scale_color_manual(values=berk_palette) +
+        scale_color_manual(expression(eta), values=berk_palette) +
         scale_y_log10() +
         scale_x_continuous(breaks=1:max(results$round)) +
+        theme(text=element_text(size=30), plot.title = element_text(hjust=0.5)) +
         ggtitle("PartitionTree Accuracy with 10,000 Samples on the Branin Function")
     
     return(list(results, plt))

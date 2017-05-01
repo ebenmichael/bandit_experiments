@@ -70,49 +70,6 @@ run_mult_opt_exp <- function(resources, n_per_resource, objective,
                                   obj_name)))
 }
 
-summary_exp <- function(results) {
-    melted_results <- reshape2::melt(results,
-                                     id.vars=c("n_resources", "algorithm",
-                                               "noise_model", "objective"))
-    melted_results$log.val <- log10(melted_results$value)
-    return(summarize_results(melted_results))
-}
-
-summarize_results <- function(melted_results) {
-    return(plyr::ddply(melted_results, c("n_resources","algorithm",
-                                         "noise_model", "objective"),
-                       summarize,
-                       N = length(!is.na(value)),
-                       mean = mean(value[!is.na(value)]),                       
-                       median = median(value[!is.na(value)]),
-                       sd = sd(value[!is.na(value)]),
-                       se = sd / sqrt(N),
-                       log.mean = mean(log.val[!is.na(log.val)]),
-                       log.sd = sd(log.val[!is.na(log.val)]),
-                       log.se = log.sd / sqrt(N),
-                       upper.quantile = quantile(value[!is.na(value)], 3/4),
-                       lower.quantile = quantile(value[!is.na(value)], 1/4)))
-}
-
-plot_summary_exp <- function(results) {
-    summary_res <- summary_exp(results)
-    plot_summarized_results(summary_res)
-}
-
-plot_summarized_results <- function(summary_res) {
-    return(ggplot(summary_res, aes(x=log10(n_resources), y=median, color=algorithm)) +
-        geom_line() +
-        geom_errorbar(aes(ymin=lower.quantile,
-                          ymax=upper.quantile),
-                      width=.1) +
-        geom_point() +
-        scale_y_log10() + 
-        xlab("Total Number of Samples (Log Scale)") +
-        ylab("Function Error (Log Scale)") +
-        facet_grid(objective ~ noise_model))
-
-}
-
 ## A collection of partially applied functions to use with run_opt_exp
 
 ## Sequential halving random search optimization where limit / n_samples = n_values
