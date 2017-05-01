@@ -1,4 +1,4 @@
-w###Code to create the figures for the paper and poster
+###Code to create the figures for the paper and poster
 source("experiments.R")
 source("random_forest_opt.R")
 source("optimization.R")
@@ -76,6 +76,7 @@ hart6 <- function(xx) {
   y <- -(2.58 + outer) / 1.94
   return(y)
 }
+
 neg_hart6 <- function(x) -hart6(x)
 hart6_bd <- rbind(c(0,1), c(0,1), c(0,1), c(0,1), c(0,1), c(0,1))
 hart6_arg_max <- c(.20169, .150011, .476874, .275332, 0.311652, 0.6573)
