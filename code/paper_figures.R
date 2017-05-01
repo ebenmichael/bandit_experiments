@@ -2,7 +2,7 @@
 source("experiments.R")
 source("random_forest_opt.R")
 source("optimization.R")
-#library(ggplot2)
+library(ggplot2)
 
 ### Berkeley color palette
 berk_palette <- c("#003262", "#FDB515", "#C4820E", "#3B7EA1",
