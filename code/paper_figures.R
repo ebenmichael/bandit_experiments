@@ -88,8 +88,7 @@ hart6_max <- 3.32237
 bayes_opt_branin_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
                             "gaussian", bran_bd, bran_max,
-                            c("bayes_opt_growing_halving",
-                              "bayes_opt_growing_hyper"),
+                            c("bayes_opt_growing_hyper"),
                             "negative.branin")
     return(res)
 }
@@ -109,11 +108,8 @@ bandit_opt_branin_gaus <- function(n_per_resource) {
 tree_opt_branin_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_branin,
                             "gaussian", bran_bd, bran_max,
-                            c("seq_tree_1_tree",
-                              "seq_tree_fixed_prop",
-                              "partition_tree_growing_4",
-                              "partition_tree_fixed_4",
-                              "partition_tree_growing_3"),
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
                             "negative.branin")
     
 }
@@ -142,11 +138,8 @@ bandit_opt_hart3_gaus <- function(n_per_resource) {
 tree_opt_hart3_gaus <- function(n_per_resource) {
     res <- run_mult_opt_exp(2.5 * 10^seq(3, 5, .5), n_per_resource, neg_hart3,
                             "gaussian", hart3_bd, hart3_max,
-                            c("seq_tree_1_tree",
-                              "seq_tree_fixed_prop",
-                              "partition_tree_growing_4",
-                              "partition_tree_fixed_4",
-                              "partition_tree_growing_3"),
+                            c("seq_tree_fixed_prop",
+                              "partition_tree_growing_4"),
                             "negative.hartmann.3")
     
 }
@@ -302,11 +295,12 @@ plot_summarized_results <- function(summary_res) {
     # only keep some algorithms for clarity
     keep_algos <- c("seq_tree_fixed_prop", "partition_tree_growing_4",
                     "hyperband_4", "seq_halving_max_rand",
-                    "bayes_opt_growing_hyper")
+                    "bayes_opt_growing_hyper",
+                    "partition_tree_growing_10")
     summary_res <- summary_res[summary_res$algorithm %in% keep_algos,]
 
-    noise_names <- c(gaussian = "Gaussian: Variance = 1/4",
-                     gaussian_high = "Gaussian: Variance = 4")
+    noise_names <- c(gaussian = "Gaussian: SD = 1/2",
+                     gaussian_high = "Gaussian: SD = 5")
     objective_names <- c(negative.branin = "Branin",
                          negative.hartmann.3 = "Hartmann 3D",
                          negative.hartmann.6 = "Hartmann 6D")
@@ -317,16 +311,21 @@ plot_summarized_results <- function(summary_res) {
                               "negative.hartmann.6"))
     names(var_line) <- c("noise_model", "objective")
     var_line$var <- 0
-    var_line[var_line$noise_model == "gaussian", "var"] <- 0.25
-    var_line[var_line$noise_model == "gaussian_high", "var"] <- 4
+    var_line[var_line$noise_model == "gaussian", "var"] <- 0.5
+    var_line[var_line$noise_model == "gaussian_high", "var"] <- 5
     plt <- ggplot(summary_res, aes(x=n_resources, y=mean, color=algorithm)) +
+        #geom_hline(data = var_line, aes(yintercept = var, alpha=.5)) +
         geom_line(size=1.5) +
         geom_errorbar(aes(ymin=mean+1.96*se,
                           ymax=mean-1.96*se),
                       width=.1) +
         geom_point() +
-        scale_y_log10() +
-        scale_x_log10() + 
+        scale_y_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+        scale_x_log10(
+            breaks = scales::trans_breaks("log10", function(x) 10^x),
+            labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
         scale_color_manual("", values=berk_palette,
                            labels=c("Bayesian Optimization",
                                     "Hyperband",
@@ -334,8 +333,7 @@ plot_summarized_results <- function(summary_res) {
                                     "PartitionTree",
                                     "SequentialTree")) +
         xlab("Total Number of Samples (Log Scale)") +
-        ylab("Function Error (Log Scale)") +
-        geom_hline(data = var_line, aes(yintercept = var)) + 
+        ylab("Function Error (Log Scale)") + 
         facet_grid(noise_model ~ objective,
                    labeller = labeller(noise_model = noise_names,
                                        objective = objective_names)) +
@@ -693,4 +691,33 @@ part_tree_error_per_round <- function(budget, n_exps) {
         ggtitle("PartitionTree Accuracy with 10,000 Samples on the Branin Function")
     
     return(list(results, plt))
+}
+
+
+####### Fit some regressions to get estimates of rates
+lm_rates <- function(res_list) {
+    keep_algos <- c("seq_tree_fixed_prop", "partition_tree_growing_4",
+                    "hyperband_4", "seq_halving_max_rand",
+                    "bayes_opt_growing_hyper",
+                    "partition_tree_growing_10")
+    
+    # melt everything and combine into one
+    all_dat <- do.call(rbind,
+                       lapply(res_list,
+                              function(x)
+                                  reshape2::melt(x,
+                                                 id.vars = c("algorithm",
+                                                             "objective",
+                                                             "noise_model",
+                                                             "n_resources"))))
+    all_dat <- all_dat[all_dat$algorithm %in% keep_algos, ]
+    # fit some regressions
+    models <- plyr::dlply(all_dat,
+                          c("algorithm", "objective", "noise_model"),
+                          function(df) lm(log(value) ~ log(n_resources), data=df))
+    # get the coefficients into a data frame
+    coefs <- plyr::ldply(models, coef)
+    coefs <- coefs[,-4]
+    names(coefs) <- c("Algorithm", "Objective", "Noise.Model", "Rate")
+    return(coefs)
 }
