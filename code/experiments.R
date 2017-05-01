@@ -1,7 +1,6 @@
 source("bandits.R")
 source("optimization.R")
 source("random_forest_opt.R")
-library(ggplot2)
 library(pryr)
 library(dplyr)
 ####Optimization experiments
