@@ -15,6 +15,7 @@
 
 \usepackage{amsmath, amsfonts, amssymb,amscd, enumerate,algorithm,algpseudocode,graphicx,fancyhdr,bbm,tikz,subfigure,listings}
 \usepackage[a4paper,bindingoffset=0.2in,left=1in,right=1in,top=1.5in,bottom=1.5in,footskip=.25in]{geometry}
+\usepackage{multirow}
 \usetikzlibrary{fit, positioning}
  
 
@@ -107,23 +108,22 @@
 \subsubsection{Algorithm}
 
 \begin{algorithm}[H]
+\scriptsize
 \caption{SequentialTree}
 \label{seq_tree}
-\begin{algorithmic}
+\begin{algorithmic}[1]
 \Procedure{SequentialTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $m$}
-\State Assign $\calP = \{\calX\}$
-\State Assign $\texttt{n\_nodes} = m$
-\For{$r =1\ldots \log_\eta(m)$}
-\State The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| \lceil \log_\eta(m) \rceil} \right \rfloor$
-\State $\calA_r = \emptyset$
-\State $\hat{B}_r = \emptyset$ %\Comment{Stores the tree predictions}
+\State Assign $\calP = \{\calX\}$ and $\texttt{n\_nodes} = m$
+\For{$r =1\ldots \lceil\log_\eta(m)\rceil$}
+\State Assign the number of pulls per element of $\calP$, $n_r = \left \lfloor \frac{T}{|\calP| \lceil \log_\eta(m) \rceil} \right \rfloor$
+\State Assign $\calA_r = \emptyset$ and $\hat{B}_r = \emptyset$
 \For{$p \in \calP$}
 \State Remove $p$ from $\calP$
 \State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
 \State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
 \State Train a decision tree with \texttt{n\_nodes} nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
-\State Add the \texttt{n\_nodes} partitions defined by $t_p$ to $\calA_r$
-\State Add the prediction from $t_p$ for each partition to $\hat{B}_r$.
+\State Add the \texttt{n\_nodes} elements of the partition of $p$ defined by $t_p$ to $\calA_r$
+\State Add the prediction from $t_p$ for each element to $\hat{B}_r$.
 \EndFor
 \If{$|\calP| > \eta^2$}
 \State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta^2}$ of $\hat{B}_r$
@@ -138,28 +138,30 @@
 \end{algorithmic}
 
 \end{algorithm}
+
 \subsection{PartitionTree}
 
 \subsubsection{Algorithm}
 
 \begin{algorithm}[H]
+\scriptsize
 \caption{PartitionTree}
 \label{part_tree}
-\begin{algorithmic}
-\Procedure{PartitionTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, rounds $R$}
-\State $m = \eta^2$
-\State $\calP = \{\calX\}$
+\begin{algorithmic}[1]
+\Procedure{PartitionTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $R$, $k$}
+\State Assign $\calP = \{\calX\}$, and $m = \eta^2$
 \For{$r=1,\ldots,R$}
-The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| R} \right \rfloor$
-\State $\calA_r = \emptyset$
-\State $\hat{B}_r = \emptyset$ %\Comment{Stores the tree predictions}
+\State The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| R} \right \rfloor$
+\State Assign $\calA_r = \emptyset$ and $\hat{B}_r = \emptyset$
 \For{$p \in \calP$}
 \State Remove $p$ from $\calP$
 \State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
 \State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
 \State Train a decision tree with $m$ nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
-\State Add the $m$ partitions defined by $t_p$ to $\calA_r$
-\State Add the prediction from $t_p$ for each partition to $\hat{B}_r$.
+\State Train a random forest with $k$ trees and $m$ nodes per tree  
+\State $rf_p = \textproc{RandomForest}(y_p \sim X_p)$
+\State Add the $m$ elements of the partition of $p$ defined by $t_p$ to $\calA_r$
+\State Add the prediction from $rf_p$ for the mid point of each element to $\hat{B}_r$.
 \EndFor
 \State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta}$ of $\hat{B}_r$
 \State Let $\hat{p}$ be the element of $\calP$ with the best prediction
@@ -171,6 +173,24 @@ The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP|
 \end{algorithm}
 
 \section{Empirical Evaluation}
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{c c c c c c c}
+  \hline
+Algorithm & \multicolumn{2}{c}{Branin} & \multicolumn{2}{c}{Hartmann 3D} & \multicolumn{2}{c}{Hartmann 6D}\\
+& $\sigma=\frac{1}{2}$ & $\sigma = 5$ & $\sigma=\frac{1}{2}$ &  $\sigma = 5$ &  $\sigma=\frac{1}{2}$ &  $\sigma = 5$\\
+  \hline
+Bayesian Optimization & -1.65 & -0.05 & -0.19 & -0.06 & 0.02 & - \\ 
+Hyperband & -0.75 & -0.56 & -0.57 & -0.45 & -0.14 & -0.18 \\ 
+SequentialHalving & -0.83 & -0.65 & -0.62 & -0.54 & -0.12 & -0.18 \\ 
+PartitionTree & -0.19 & -0.31 & -0.12 & -0.16 & -0.02 & -0.03 \\ 
+SequentialTree & -0.28 & -0.38 & -0.29 & -0.48 & -0.08 & -0.10 \\ 
+   \hline
+\end{tabular}
+\label{emp_rates}
+\caption{Empirical Rates}
+\end{table}
 
 \section{Conclusion}
 

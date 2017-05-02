@@ -43,3 +43,9 @@ vignettes/*.pdf
 *.log
 *.aux
 *.out
+*.nav
+*.snm
+*.toc
+*_flymake*
+*.bbl
+*.blg

@@ -1,0 +1,352 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Jacobs Landscape Poster
+% LaTeX Template
+% Version 1.1 (14/06/14)
+%
+% Created by:
+% Computational Physics and Biophysics Group, Jacobs University
+% https://teamwork.jacobs-university.de:8443/confluence/display/CoPandBiG/LaTeX+Poster
+% 
+% Further modified by:
+% Nathaniel Johnston (nathaniel@njohnston.ca)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[final]{beamer}
+
+\usepackage[scale=1.24]{beamerposter} % Use the beamerposter package for laying out the poster
+
+\usetheme{confposter} % Use the confposter theme supplied with this template
+
+\setbeamercolor{block title}{fg=b_blue,bg=white} % Colors of the block titles
+\setbeamercolor{block body}{fg=black,bg=white} % Colors of the body of blocks
+\setbeamercolor{block alerted title}{fg=cali_gold,bg=b_blue} % Colors of the highlighted block titles
+\setbeamercolor{block alerted body}{fg=black,bg=white} % Colors of the body of highlighted blocks
+
+\setbeamercolor{itemize item}{fg=b_blue, bg=white}
+
+
+%-----------------------------------------------------------
+% Define the column widths and overall poster size
+% To set effective sepwid, onecolwid and twocolwid values, first choose how many columns you want and how much separation you want between columns
+% In this template, the separation width chosen is 0.024 of the paper width and a 4-column layout
+% onecolwid should therefore be (1-(# of columns+1)*sepwid)/# of columns e.g. (1-(4+1)*0.024)/4 = 0.22
+% Set twocolwid to be (2*onecolwid)+sepwid = 0.464
+% Set threecolwid to be (3*onecolwid)+2*sepwid = 0.708
+
+\newlength{\sepwid}
+\newlength{\onecolwid}
+\newlength{\twocolwid}
+\newlength{\threecolwid}
+\setlength{\paperwidth}{48in} % A0 width: 46.8in
+\setlength{\paperheight}{36in} % A0 height: 33.1in
+\setlength{\sepwid}{0.024\paperwidth} % Separation width (white space) between columns % 0.024 
+\setlength{\onecolwid}{0.22\paperwidth} % Width of one column
+\setlength{\twocolwid}{0.464\paperwidth} % Width of two columns
+\setlength{\threecolwid}{0.708\paperwidth} % Width of three columns
+\setlength{\topmargin}{-1in} % Reduce the top margin size -.5
+%-----------------------------------------------------------
+
+\usepackage{graphicx}  % Required for including images
+\usepackage{booktabs} % Top and bottom rules for tables
+\usepackage[font=scriptsize, labelfont=bf]{caption}
+\usepackage{subcaption}
+
+\captionsetup[figure]{font=small}
+
+\usepackage{amsmath, amsfonts, amssymb,amscd, enumerate,algorithm,graphicx,fancyhdr,bbm,tikz,listings}
+
+\usepackage[noend]{algpseudocode}
+
+
+\graphicspath{ {../figures/} }
+\input{stat-macros}
+
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION 
+%----------------------------------------------------------------------------------------
+
+\title{Tree-Based Recursive Partitioning for Finding the Best Treatment} % Poster title
+
+\author{Eli Ben-Michael} % Author(s)
+
+\institute{Department of Statistics, UC Berkeley} % Institution(s)
+
+%----------------------------------------------------------------------------------------
+
+\begin{document}
+
+
+
+
+\addtobeamertemplate{block end}{}{\vspace*{2ex}} % White space under blocks
+\addtobeamertemplate{block alerted end}{}{\vspace*{2ex}} % White space under highlighted (alert) blocks
+
+\setlength{\belowcaptionskip}{2ex} % White space under figures
+\setlength\belowdisplayshortskip{2ex} % White space under equations
+
+\begin{frame}[t] % The whole poster is enclosed in one beamer frame
+
+%\begin{picture}(2850,-75)
+%\put(0,0){\hbox{\includegraphics[scale=0.3]{berkeleylogo.jpg}}}
+%\end{picture}
+
+
+\begin{columns}[t] % The whole poster consists of three major columns, the second of which is split into two columns twice - the [t] option aligns each column's content to the top
+
+\begin{column}{\sepwid}\end{column} % Empty spacer column
+
+\begin{column}{\onecolwid} % The first column
+
+%----------------------------------------------------------------------------------------
+%	OBJECTIVES
+%----------------------------------------------------------------------------------------
+
+
+
+%\begin{alertblock}{Objectives}
+%We consider the problem of finding the optimal setting of multiple parameters through randomized experimentation.
+%\begin{itemize}
+%\item Hello?
+%\item Hello?
+%\end{itemize}
+%\end{alertblock}
+
+%----------------------------------------------------------------------------------------
+%	INTRODUCTION
+%----------------------------------------------------------------------------------------
+
+\begin{block}{Motivation}
+
+When designing an experiment we must choose treatments to assign to subjects. 
+We do not know {\it a priori} the effect of any treatment and in many settings the treatments lie in a continuous, multidimensional space. Randomized experimentation is the standard for evaluating the effect of any treatment; however, due to budget, computational, or time constraints, we often want to find the best treatment with as few experiments as possible. {\bf Given a budget constraint, how do we decide which treatments to give and what experiments to run?}
+
+ We consider this problem as an instance of a constrained optimization problem where:
+\begin{itemize}
+\item The objective is expensive to evaluate and possibly non-convex
+\item We are restricted to noisy zeroth-order information
+\item We have a limited budget for function queries
+\end{itemize}
+This problem is similar to hyper-parameter optimization in machine learning, for which  \cite{Snoek2012} suggests { \bf Bayesian Optimization}: modeling the objective as a Gaussian Process and optimizing a cheaper surrogate function.
+
+\begin{figure}[H]
+\includegraphics[width=\onecolwid]{acq_funcs.png}
+\label{acq_funcs}
+\caption{GP posterior along with probability of improvement (blue), expected improvement (gold), and upper confidence bound (brown)}
+\end{figure}
+
+\cite{Li2016} proposes {\bf Hyperband}, a bandit-based approach to random search which builds off of {\bf Sequential Halving} from \cite{Karnin2013,Jamieson2015}. We fuse modeling and bandit-based ideas, and propose two algorithms which take advantage of the structure of random experiments and recursively partition the search space, producing finer partitions near possibly optimal points.
+
+\end{block}
+
+%------------------------------------------------
+
+
+%----------------------------------------------------------------------------------------
+
+\end{column} % End of the first column
+
+\begin{column}{\sepwid}\end{column} % Empty spacer column
+
+\begin{column}{\twocolwid} % Begin a column which is two columns wide (column 2)
+
+\begin{block}{Two Tree-Based Partition Algorithms}
+
+\begin{columns}[t,totalwidth=\twocolwid] % Split up the two columns wide column
+
+\begin{column}{\onecolwid}\vspace{-.6in} % The first column within column 2 (column 2.1)
+
+%----------------------------------------------------------------------------------------
+%	Algorithms
+%----------------------------------------------------------------------------------------
+
+
+\begin{algorithm}[H]
+\scriptsize
+\setlength{\columnwidth}{\onecolwid}
+\caption{SequentialTree}
+\label{seq_tree}
+\begin{algorithmic}[1]
+\Procedure{SequentialTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $m$}
+\State Assign $\calP = \{\calX\}$ and $\texttt{n\_nodes} = m$
+\For{$r =1\ldots \lceil\log_\eta(m)\rceil$}
+\State Assign the number of pulls per element of $\calP$, $n_r = \left \lfloor \frac{T}{|\calP| \lceil \log_\eta(m) \rceil} \right \rfloor$
+\State Assign $\calA_r = \emptyset$ and $\hat{B}_r = \emptyset$
+\For{$p \in \calP$}
+\State Remove $p$ from $\calP$
+\State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
+\State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
+\State Train a decision tree with \texttt{n\_nodes} nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
+\State Add the \texttt{n\_nodes} elements of the partition of $p$ defined by $t_p$ to $\calA_r$
+\State Add the prediction from $t_p$ for each element to $\hat{B}_r$.
+\EndFor
+\If{$|\calP| > \eta^2$}
+\State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta^2}$ of $\hat{B}_r$
+\Else 
+\State Let $\hat{p}$ be the element of $\calP$ with the best prediction
+\State \Return $\textproc{MidPoint}(\hat{p})$
+\EndIf
+\State $\texttt{n\_nodes} = \eta$
+\EndFor
+
+\EndProcedure
+\end{algorithmic}
+
+\end{algorithm}
+
+\end{column} % End of column 2.1
+
+
+\begin{column}{\onecolwid}\vspace{-.6in} % The second column within column 2 (column 2.2)
+
+\begin{algorithm}[H]
+\scriptsize
+\caption{PartitionTree}
+\label{part_tree}
+\begin{algorithmic}[1]
+\Procedure{PartitionTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $R$, $k$}
+\State Assign $\calP = \{\calX\}$, and $m = \eta^2$
+\For{$r=1,\ldots,R$}
+\State The number of pulls per element of $\calP$ $n_r = \left \lfloor \frac{T}{|\calP| R} \right \rfloor$
+\State Assign $\calA_r = \emptyset$ and $\hat{B}_r = \emptyset$
+\For{$p \in \calP$}
+\State Remove $p$ from $\calP$
+\State Sample $\{x_{p1},\ldots, x_{pn_r}\}$ independently and uniformly over $p$
+\State Let $\{y_{p1},\ldots, y_{pn_r}\}$ be the result of querying the function at these points
+\State Train a decision tree with $m$ nodes, $t_p = \textproc{DecisionTree}(y_p \sim X_p)$
+\State Train a random forest with $k$ trees and $m$ nodes per tree  
+\State $rf_p = \textproc{RandomForest}(y_p \sim X_p)$
+\State Add the $m$ elements of the partition of $p$ defined by $t_p$ to $\calA_r$
+\State Add the prediction from $rf_p$ for the mid point of each element to $\hat{B}_r$.
+\EndFor
+\State Set $\calP$ to be the elements of $\calA_r$ with predictions in the top $\frac{|\calP|}{\eta}$ of $\hat{B}_r$
+\State Let $\hat{p}$ be the element of $\calP$ with the best prediction
+\State $m = \eta$
+\EndFor
+\State \Return $\textproc{MidPoint}(\hat{p})$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\end{column} % End of column 2.2
+
+\end{columns} % End of the split of column 2 - any content after this will now take up 2 columns width
+\end{block}
+%----------------------------------------------------------------------------------------
+
+%----------------------------------------------------------------------------------------
+%	Empirical Evaluation
+%----------------------------------------------------------------------------------------
+
+\begin{block}{Empirical Evaluation}
+
+\begin{figure}[H]
+  \includegraphics[width=\textwidth]{emp_results.png}
+    \caption{In the low noise and low budget setting SequentialTree consistently outperforms SequentialHalving and Hyperband. In the high noise setting it does worse, but PartitionTree sometimes performs better than the two bandit algorithms. PartitionTree does not benefit much from more samples, and SequentialTree seems to have a worse rate than the two bandit algorithms.}
+\end{figure}
+
+\end{block}
+
+
+\end{column} % End of the second column
+
+\begin{column}{\sepwid}\end{column} % Empty spacer column
+
+\begin{column}{\onecolwid} % The third column
+
+%----------------------------------------------------------------------------------------
+%	More on Algos
+%----------------------------------------------------------------------------------------
+
+\begin{block}{Algorithm Parameter Settings}
+\begin{figure}[H]
+
+  \begin{subfigure}[t]{\textwidth}
+    \includegraphics[width=\textwidth]{seq_tree_error_per_round.png}
+    \subcaption{With $\eta=2$ SequentialTree is less aggressive and explores more of the space. Empirically this gives better performance.}
+  \end{subfigure}
+
+  \begin{subfigure}[t]{\textwidth}
+    \includegraphics[width=\textwidth]{part_tree_error_per_round.png}
+    \subcaption{For all settings of $\eta$, PartitionTree reaches an error floor with successive rounds.}
+  \end{subfigure}
+\end{figure}
+\end{block}
+
+%----------------------------------------------------------------------------------------
+
+
+%----------------------------------------------------------------------------------------
+%	CONCLUSION and future directions
+%----------------------------------------------------------------------------------------
+
+\begin{block}{Conclusion and Future Directions}
+In some low budget settings the tree-based partition algorithms outperform the bandit-based algorithms. For future work we hope to make modifications to the algorithms to achieve faster empirical rates of convergence in terms of sample complexity. We also will explore if any theoretical comparisons can be made.
+
+\end{block}
+
+%----------------------------------------------------------------------------------------
+%	REFERENCES
+%----------------------------------------------------------------------------------------
+
+\begin{block}{References}
+\tiny
+\bibliography{/home/ebenmichael/Documents/berkeley/research/citations/library}
+\bibliographystyle{ieeetr}
+\end{block}
+
+%----------------------------------------------------------------------------------------
+%	ACKNOWLEDGEMENTS
+%----------------------------------------------------------------------------------------
+
+%\setbeamercolor{block title}{fg=red,bg=white} % Change the block title color
+%
+%\begin{block}{Acknowledgements}
+%
+%\small{\rmfamily{Nam mollis tristique neque eu luctus. Suspendisse rutrum congue nisi sed convallis. Aenean id neque dolor. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas.}} \\
+%
+%\end{block}
+
+%----------------------------------------------------------------------------------------
+%	CONTACT INFORMATION
+%----------------------------------------------------------------------------------------
+
+%\setbeamercolor{block alerted title}{fg=black,bg=norange} % Change the alert block title colors
+%\setbeamercolor{block alerted body}{fg=black,bg=white} % Change the alert block body colors
+%
+%\begin{alertblock}{Contact Information}
+%
+%\begin{itemize}
+%\item Web: \href{http://www.university.edu/smithlab}{http://www.university.edu/smithlab}
+%\item Email: \href{mailto:john@smith.com}{john@smith.com}
+%\item Phone: +1 (000) 111 1111
+%\end{itemize}
+%
+%\end{alertblock}
+
+\begin{center}
+\begin{tabular}{ccc}
+\includegraphics[width=.4\linewidth]{berkeleylogo.jpg} 
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------------------------------------
+
+\end{column} % End of the third column
+
+\end{columns} % End of all the columns in the poster
+
+\end{frame} % End of the enclosing frame
+
+\end{document}
