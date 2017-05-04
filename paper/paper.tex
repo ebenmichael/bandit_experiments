@@ -1,4 +1,4 @@
-\documentclass[twoside,11pt]{article}
+\documentclass[11pt]{article}
 
 % Any additional packages needed should be included after jmlr2e.
 % Note that jmlr2e.sty includes epsfig, amssymb, natbib and graphicx,
@@ -8,108 +8,213 @@
 % natbib citation styles, see the natbib documentation, a copy of which
 % is archived at http://www.jmlr.org/format/natbib.pdf
 
-\usepackage{jmlr2e}
+\usepackage[nonatbib, final]{nips_2016}
+
+\usepackage{amsmath, amsfonts, amssymb,amscd, enumerate,algorithm,graphicx,fancyhdr,bbm,tikz,subcaption,listings}
+
+\usepackage[noend]{algpseudocode}
+\usepackage{multirow}
+\usepackage{color}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usetikzlibrary{fit, positioning}
+
 
 % Definitions of handy macros can go here
 \usepackage{blindtext}
 
-\usepackage{amsmath, amsfonts, amssymb,amscd, enumerate,algorithm,algpseudocode,graphicx,fancyhdr,bbm,tikz,subfigure,listings}
-\usepackage[a4paper,bindingoffset=0.2in,left=1in,right=1in,top=1.5in,bottom=1.5in,footskip=.25in]{geometry}
-\usepackage{multirow}
-\usetikzlibrary{fit, positioning}
- 
+\input{../poster/stat-macros}
+\graphicspath{ {../figures/} }
 
-\newcommand{\R}{\ensuremath{\mathbb{R}}}
-\newcommand{\N}{\ensuremath{\mathbb{N}}}
-\newcommand{\Q}{\ensuremath{\mathbb{Q}}}
-\newcommand{\Z}{\ensuremath{\mathbb{Z}}}
-\newcommand{\I}{\ensuremath{\mathbb{I}}}
-\newcommand{\1}{\ensuremath{\mathbbm{1}}}
-\newcommand{\calF}{\ensuremath{\mathcal{F}}}
-\newcommand{\calB}{\ensuremath{\mathcal{B}}}
-\newcommand{\calO}{\ensuremath{\mathcal{O}}}
-\newcommand{\E}{\ensuremath{\mathbb{E}}}
-\newcommand{\calA}{\ensuremath{\mathcal{A}}}
-\newcommand{\calG}{\ensuremath{\mathcal{G}}}
-\newcommand{\calJ}{\ensuremath{\mathcal{J}}}
-\newcommand{\calT}{\ensuremath{\mathcal{T}}}
-\newcommand{\calP}{\ensuremath{\mathcal{P}}}
-\newcommand{\calU}{\ensuremath{\mathcal{U}}}
-\newcommand{\calC}{\ensuremath{\mathcal{C}}}
-\newcommand{\calN}{\ensuremath{\mathcal{N}}}
-\newcommand{\calX}{\ensuremath{\mathcal{X}}}
-\newcommand{\calY}{\ensuremath{\mathcal{Y}}}
-\newcommand{\Cov}{\text{Cov}}
-\newcommand{\Var}{\text{Var}}
-\newcommand{\MSE}{\text{MSE}}
-\newcommand{\logit}{\text{logit}}
-\newcommand{\argmax}{\text{argmax}}
-\newcommand{\argmin}{\text{argmin}}
-\newcommand{\dom}{\text{dom}}
-\newcommand{\dist}{\text{dist}}
-\newcommand{\prox}{\text{prox}}
-\newcommand{\sign}{\text{sign}}
-\newcommand{\nuc}{\text{nuc}}
-\newcommand{\trace}{\text{trace}}
-\newcommand{\<}{\langle}
-\renewcommand{\>}{\rangle}
-\def\super{\textsuperscript}
-\def\sub{\textsubscript}
+\title{Adaptive Experimentation to Find the Best Treatment}
 
-\newcommand\pderiv[2]{\frac{\partial #1}{\partial #2}}
-\newcommand\deriv[2]{\frac{d #1}{d #2}}
+\author{
+  Eli Ben-Michael\\
+  Department of Statistics, UC Berkeley\\
+  \texttt{ebenmichael@berkeley.edu}}
 
-\renewcommand{\algorithmicrequire}{\textbf{Input:}}
-\renewcommand{\algorithmicensure}{\textbf{Output:}}
-
-% Heading arguments are {volume}{year}{pages}{submitted}{published}{author-full-names}
-
-%\jmlrheading{1}{2000}{1-48}{4/00}{10/00}{meila00a}{Marina Meil\u{a} and Michael I. Jordan}
-
-% Short headings should be running head and authors last names
-
-\ShortHeadings{TREES!!}{TREES!!}
-\firstpageno{1}
 
 \begin{document}
 
-\title{TREEES}
-
-\author{\name Eli Ben-Michael \email ebenmichael@berkeley.edu \\
-       \addr Department of Statistics\\
-       University of California\\
-       Berkeley, CA 94720-1776, USA}
-
-\editor{}
-
 \maketitle
-
-\begin{abstract}%   <- trailing '%' for backward compatibility of .sty file
-  \blindtext[1]
+\vspace{-1em}
+\begin{abstract}
+In order to evaluate the effect of any particular treatment, randomized experimentation is the ideal method. However, we must choose which treatments to evaluate. In many settings the treatments lie in a continuous, multidimensional space, and the goal is to find the treatment with the best average treatment effect. Due to budget, computational, or time constraints, we often aim to find this treatment with as few and as small experiments as possible. We address this problem: given a budget constraint, how do we decide which treatments to give and what experiments to run in order to find the optimal treatment? We compare the problem to that of hyperparameter optimization and adapt successful algorithms from the field to solve the problem. We also propose two novel algorithms which directly incorporate the structure of this problem and empirically compare all of the algorithms. We find that in a variety of settings, our proposed algorithms empirically require an order of magnitude lower budget to achieve the same performance as the best hyperparameter optimization algorithms.
 \end{abstract}
 
-\begin{keywords}
-  TREEES
-\end{keywords}
+
 
 \section{Introduction}
-\blindtext[1]
-\section{Bayesian Optimization and Bandit-Based Algorithms}
+In the traditional statistical story, we want to evaluate the effect of a specific treatment of some scientific interest. We do a power calculation, decide the number of experimental units to assign the treatment, and run a randomized control trial. However, there are many cases where this story falls apart. Consider the experiments run by the industry which performs more experiments than any other: the technology industry. In those experiments oftentimes there is no particular treatment which we {\it a priori} want to evaluate the effect of. Instead, we are confronted with a continuous, multidimensional space of possible treatments and {\it we want to find the best one}. For example, consider the usual use case for A/B testing; a site wants to configure a web page to optimize a metric such as the conversion rate, and runs experiments to evaluate the effect of certain configurations; however, these configurations can incorporate multidimensional choices such as color or position of text. Due to budget, computational, or time constraints, we also want to find the best treatment while running as few and as small experiments as possible. We consider the problem of designing a sequence of experiments which, with a fixed budget on the number of experimental units/total sample size, tries to find the best treatment.
 
-\subsection{Bayesian Optimization}
+We formalize this as a constrained optimization problem. Given a space of treatments $\calX$, which throughout we assume is a box (i.e. $\calX = \{x \in \R^d \mid a_1 \leq x_1 \leq b_1,\ldots, a_d \leq x_d \leq b_d\}$), and a mapping $f:\calX \to \R$ which maps treatments to their average treatment effect, we want to find an optimal treatment $x^* \in \argmin_{x \in \calX} \; f(x)$. Only noisy zeroth-order black box information is available about the function through queries $f(x) + \epsilon$, where for the purposes of this paper $\epsilon$ is i.i.d Gaussian, but in principle could be sub-Gaussian. \cite{Agarwal2013} and \cite{Shamir2013} consider similar scenarios and assume that the function $f$ is convex. In this setting, they produce a sequence of iterates $\{x_t\}_{t=1}^T$ meant to minimize the {\it Expected Regret} $\E\left[\frac{1}{T}\sum_{t=1}^Tf(x_t) - f(x^*)\right]$. Due to Jensen's inequality, in the convex setting an algorithm which minimizes expected regret minimizes the expected objective error \cite{Agarwal2013, Shamir2013}. Our setting is slightly different. First, we do not assume that the function is convex, and second we impose a budget on the number of function queries/samples. This budget corresponds to a budget on the total number of experimental units allowed over all experiments, and is a natural constraint when each unit costs time and money.
 
-\subsection{SuccessiveHalving and Hyperband}
+This problem has many parallels to hyperparameter optimization \cite{Li2016, Snoek2012}: the problem of tuning the hyperparameters of a machine learning algorithm by minimizing loss on a validation set. In both settings the objective is expensive to compute (either running an experiment or training a model), and only zeroth-order information is available, which in the case of hyperparameter optimization is not noisy. Additionally, the notion of a budget is similar: the budget on the number of units/samples in adaptive experimental design maps on to a budget on the number of iterations or training time for iterative machine learning algorithms (e.g. ones that use gradient descent). However, computational and time costs are distributed differently. In hyperparameter optimization there is a large start-up cost to initializing the machine learning algorithm; it is more time consuming to run through one iteration of stochastic gradient descent on 1000 models than it is to run through 1000 iterations of stochastic gradient descent on one model. In adaptive experimental design there is a similarly high fixed cost for running each experiment; however, within each experiment, each experimental unit can be assigned a different treatment at no additional cost. This implies a practical difference between the two problems: in adaptive experimental design it is possible to take a scatter-shot approach and query the objective in many places with a single sample, while the same is not true for hyperparameter optimization. 
 
-\section{A Trio of Tree Algorithms}
+In Section 2 we explore two different methods for hyperparameter optimization and adapt them to adaptive experimental design. In Section 3 we propose two new algorithms which take advantage of the scatter-shot approach possible in adaptive experimental design. In Section 4 we empirically compare these algorithms on test cases. In Section 5 we discuss future directions.
+\section{Hyperparameter Optimization}
+We consider two diverging methods of hyperparameter optimization, that \cite{Li2016} separates into {\it configuration selection} and {\it configuration evaluation}. The former refers to methods which attempt to find good configurations of the hyperparameters quickly, and the latter refers to methods which attempt to allocate more resources to potentially good configurations over potentially bad configurations.
 
-\subsection{SequentialHalving with Decision Tree inputs}
+\subsection{Configuration Selection with Bayesian Optimization}
 
-\subsection{SequentialTree}
-\subsubsection{Algorithm}
 
-\begin{algorithm}[H]
+\begin{algorithm}
 \scriptsize
-\caption{SequentialTree}
+\caption{Bayesian Optimization \cite{Brochu2010}}
+\label{bayes_opt}
+\begin{algorithmic}[1]
+\For{$t=1,2,\ldots$}
+\State Optimize the acquisition function:  $x_t = \argmax_x a(x \mid D_{1:t-1})$
+\State Calculate $f(x_t)$
+\State Augment the data $D_{1:i} = \{D_{1:t-1}, (x_t, y_t)\}$
+\State Update model for $f$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Bayesian optimization is a tool designed for black box global optimization where function calls are expensive. The idea is straightforward: create a model of the objective function and at each step fit the model to the data and optimize a surrogate function called an {\it Acquisition Function} to choose the next point at which to query the function(see Algorithm \ref{bayes_opt}). Inherent in this process are two essential choices: the model for the objective and the acquisition function, we now consider the former.
+
+\subsubsection{Gaussian Processes for Regression}
+As seen by the name, Bayesian Optimization incorporates a Bayesian approach to modeling the objective function. As in any Bayesian method, there is a likelihood and a prior, however in this case the prior is over functions. The usual prior is a {\it Gaussian Process} \cite{Brochu2010, Snoek2012}: which extends a multivariate Gaussian distribution. It is a stochastic process with index set $\calX$ for which any finite collection is jointly Gaussian distributed \cite{Rasmussen2004}. A Gaussian process can be determined  by a mean function $m:\calX \to \R$ and a covariance kernel $K:\calX \times \calX \to \R$ and we denote $f \sim \GP(m(x), k(x,x'))$. Typically the mean function $m(x)$ is set to zero and attention is paid to the kernel, as we will see, this still allows for flexible modelling \cite{Snoek2012}. Letting $y$ denote the observed function value with noise, the full model is 
+\begin{equation}
+\begin{split}
+f & \sim \GP(m(x), k(x,x'))\\
+y_i & \sim \calN(f(x_i), \sigma^2)
+\end{split}
+\end{equation}
+Defining the matrix $K(X,X)$ such that $[K(X,X)]_{ij} = k(X_i, X_j)$, and marginalizing out $f$ we get that the vector of observations $y$ is distributed
+\begin{equation}
+\label{eqn:gp_marg}
+y \sim \calN(0, K(X,X) + \sigma^2 I)
+\end{equation}
+Now to compute the posterior distribution of new sample points $\{(\tilde{x}_i, \tilde{f}_i)\mid i=1,\ldots,\tilde{n}\}$ we note that the joint distribution is 
+\begin{equation}
+\left [ \begin{array}{c}
+y\\
+\tilde{f}
+\end{array} 
+\right]
+\sim \calN \left(0, 
+\left [
+\begin{array}{c c}
+K(X,X) + \sigma^2 I & K(X, \tilde{X})\\
+K(\tilde{X}, X) & K(\tilde{X}, \tilde{X})
+\end{array}
+\right] \right)
+\end{equation}
+An exercise in conditioning multivariate Gaussian distributions gives that the posterior is
+\begin{equation}
+\label{eqn:gp_post}
+\tilde{f} \mid \tilde{X}, X, f \sim \calN(K(\tilde{X},X)(K(X,X) + \sigma^2I)^{-1}f, K(\tilde{X}, \tilde{X})(K(X,X)^{-1} + \sigma^2 I)^{-1}K(X, \tilde{X}))
+\end{equation}
+Note that even starting with the prior mean function as zero, the posterior mean function is non-zero. In fact, looking at (\ref{eqn:gp_post}) we see that the covariance kernel strongly determines what sort of posterior means are possible. We now turn to these kernels, which corresponds to strong prior assumptions about the function. 
+
+One popular choice of covariance kernel is the {\it Squared Exponential Kernel}
+\begin{equation}
+k(x,x') = \theta_0 \exp\left(\frac{1}{2}r^2(x,x')\right) \;\;\;\; r^2(x,x') = \sum_{j=1}^d (x_j - x'_j)^2 / \theta_j^2
+\end{equation}
+This kernel is infinitely differentiable, and so corresponds to a prior assumption that the objective is very smooth \cite{Rasmussen2004}. A different class of kernels is the Mat\'ern class which provides kernels with different levels of smoothness \cite{Rasmussen2004}. \cite{Snoek2012} argues that the squared exponential kernel is ``unrealistically smooth for practical optimization problems'', and instead suggest using the {\it Mat\'ern 5/2 Kernel}
+\begin{equation}
+k(x,x') = \theta_0\left(1 + \sqrt{5 r^2(x,x')} + \frac{5}{3}r^2(x,x')\right)\exp\left(-\sqrt{5r^2(x,x')}\right)
+\end{equation}
+This kernel is only twice differentiable, an assumption which is used for second order optimization methods such as Newton's Method.
+
+Note that these kernels both have $d+1$ hyperparameters. One approach to set these hyperparameters is to optimize the marginal likelihood of $y$ (see (\ref{eqn:gp_marg})) \cite{Rasmussen2004}; another is to place hyper priors on the hyperparameters and approximately integrate out the hyperparameters in the posterior, which can be efficiently done using slice sampling \cite{Snoek2012, Murray2010}.
+
+\subsubsection{Acquisition Functions}
+The final part of Bayesian Optimization is the acquisition function. Let $x^+ = \argmax_{x_i \in x_{1:t}} f(x_i)$ be the current best $x$, and $\mu(x)$ and $\sigma^2(x)$ be the posterior mean and variance functions of the current Gaussian process $f$, then three possible acquisition functions are \cite{Snoek2012}:
+\begin{itemize}
+\item {\it Probability of Improvement}: We choose the acquisition function to simply be the probability that the function value at $x$ is greater than or equal to the current maximum function value seen.
+\begin{equation}
+a(x \mid D_{1:t}) = P(f(x) \geq f(x^+)) = \Phi(\gamma(x)) \;\;\; \gamma(x) = \frac{\mu(x) - f(x^+)}{\sigma(x)}
+\end{equation}
+\item {\it Expected Improvement}: Since probability of improvement does not take into acount {\it how much} the function improves, it leads to over-exploitative strategies (see Figure \ref{fig:acq_funcs} for an example). Instead we can explicitly take this into account and compute
+\begin{equation}
+\begin{split}
+a(x \mid D_{1:t}) & = \E[\max \{0, f(x) - f(x^+)\} \mid D_{1:t}]\\
+& = \sigma(x)(\gamma(x)\Phi(\gamma(x)) + \calN(x;\mu(x), \sigma(x)))
+\end{split}
+\end{equation}
+\item { \it GP Upper Confidence Bound}: A different method is to take some $\kappa$, which controls exploration vs exploitation, and consider an upper confidence bound on the posterior, a strategy which has been shown to have sub-linear regret \cite{Srinivas2010}
+\begin{equation}
+a(x \mid D_{1:t}) = \mu(x) + \kappa \sigma(x)
+\end{equation}
+\end{itemize}
+\begin{figure}
+\includegraphics[width=\textwidth]{acq_funcs.png}
+\caption{GP posterior along with probability of improvement (blue), expected improvement (gold), and upper confidence bound (brown)}
+\label{fig:acq_funcs}
+\end{figure}
+See Figure \ref{fig:acq_funcs} for examples of these three acquisition functions on a synthetic toy example. Note that computing the probability of improvement and the expected improvement require knowing $f(x^+)$. In the noisy case we do not know this value, so \cite{Gramacy2012} suggests a heuristic to replace $f(x^+)$ with $\min_{x \in \calX} \mu(x)$.
+\subsection{Configuration Evaluation with Successive Halving and Hyperband}
+
+Bayesian optimization is rather complicated, and requires the practitioner to make several important choices (e.g. the kernel and acquisition functions). Recently, \cite{Li2016} showed empirically that on many hyperparameter optimization tasks, running two instances of random search in parallel is superior to two state-of-the-art variants of Bayesian optimization that they tested. Additionally, random search is guaranteed to converge to the true optimum, no matter the regularity conditions on the objective, while no guarantees exists for state-of-the-art Bayesian optimization algorithms which use various heuristics \cite{Li2016}. This empirical evidence motivates \cite{Li2016} to consider configuration evaluation, and allocate resources in an adaptive manner in order to evaluate many more configuration settings. In the hyperparameter optimization setting the ``resources'' considered are the number of iterations in iterative algorithms (e.g. the number of gradient descent steps), the size of the training set, or the number of features. Building off of the Sequential Halving algorithm \cite{Karnin2013, Jamieson2015}, which we consider next, \cite{Li2016} proposed the Hyperband algorithm.
+
+In order to formalize the concept of utilizing resources, \cite{Jamieson2015} consider hyperparameter optimization as an instance of multi-armed bandit best-arm identification. There are two variants of this problem:
+\begin{itemize}
+\item {\it Stochastic Setting}: In this setting we are given $n$ arms numbered $1,\ldots,n$, where each arm $i$ has a corresponding reward $R_i$, which is a random variable in $[0,1]$ with expectation $p_i$ \cite{Karnin2013, Even-dar2003}. The arm with the highest expected reward is the {\it best arm}. At each round we choose an arm to pull, and at the end of the game we must choose the arm we think is best. \cite{Karnin2013} considers the {\it fixed confidence} setting, where we must pull the arms as few times as possible to find the best arm with fixed high probability, and the {\it fixed budget} setting, where we are given a total budget of pulls and we must allocate these pulls so as to find the best arm with maximal probability. The latter case is of interest to us. Note: it is straightforward to generalize to sub-Gaussian rewards.
+\item {\it Non-Stochastic Setting}: In this setting we again have $n$ arms, but rather than associating each arm $i$ with a reward, we associate it with a sequence $\{\ell_{i,t}\}_{t=1}^\infty$, where $\ell_{i,t}$ is the reward associated with the $t$\super{th} pull of arm $i$ and we assume that $\nu_i = \lim_{t \to \infty} \ell_{i,t}$ exists. The game remains the same and we want to find the arm $i^*$ with the best $\nu_i$.
+\end{itemize}
+For the stochastic, fixed budget setting, \cite{Karnin2013} proposes Sequential Halving. The algorithm follows a rather simple strategy: run $\log_2 n$ rounds with equal proportions of the budget where at each round we split the per round budget uniformly over all the arms and at the end of the round we examine the empirical average reward for each arm and throw out the worst half (see Algorithm \ref{sequential_halving}). \cite{Karnin2013} provides bounds on the probability that Sequential Halving fails to correctly identify the best arm. \cite{Jamieson2015} considers Sequential Halving in the non-stochastic setting and provides lower bounds on the budget size required to return the correct algorithm.
+
+Sequential Halving very clearly adapts to hyperparameter optimization: if we take $n$ random hyperparameter configurations, Sequential Halving can perform configuration evaluation and efficiently allocate resources to find the best configuration. However, one question remains: how do we decide how many configurations to take? For large $n$ we do not have many average resources per configuration but get to explore a larger amount of the space, and for small $n$ the opposite is true.
+\begin{algorithm}
+\scriptsize
+\caption{Sequential Halving \cite{Karnin2013}}
+\label{sequential_halving}
+\begin{algorithmic}[1]
+\Procedure{SequentialHalving}{budget $T$}
+\State Assign $S_0 = [n]$
+\For{$r=0,\ldots,\lceil{\log_2 n- 1\rceil} - 1$}
+\State Sample each arm $i \in S_r$ for $t_r = \left\lfloor\frac{T}{|S_r|\lceil\log_2 n\rceil}\right\rfloor$
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+Hyperband \cite{Li2016} attempts to address this trade-off between trying many configurations and giving each configuration enough resources. The algorithm uses Sequential Halving as a subroutine: it considers different feasible values of $n$ and runs Sequential Halving on $n$ configurations with the same fixed budget (see Algorithm \ref{hyperband}). Hyperband requires two choices: $R$ and $\eta$, which together define the total budget. If we restrict the total budget then we only have to choose $\eta$, high values of which correspond to more aggressive elimination of configurations.
+
+\begin{algorithm}
+\scriptsize
+\caption{Hyperband \cite{Li2016}}
+\label{hyperband}
+\begin{algorithmic}[1]
+\Procedure{Hyperband}{$R$, $\eta$}
+\State Assign $s_{\text{max}} = \lfloor \log_\eta(R)\rfloor$ and $B = (s_{\text{max}} + 1)R$
+\For{$s = 0,\ldots,s_{\text{max}}$}
+\State Assign $n = \left \lceil \frac{B}{R} \frac{\eta^s}{s+1}\right \rceil$ and $r = R\eta^{-s}$
+\State Get $n$ points $T = \{x_1,\ldots,x_n\}$
+\For{$i = 0,\dots,s$}
+\State Assign $n_i = \lfloor n\eta^{-i}\rfloor$ and $r_i = r \eta^i$
+\State For every point in $T$ query the function at every point $r_i$ times
+\State Reassign $T$ to be elements of $T$ with the top $\frac{n}{\eta}$ empirical means
+\EndFor
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{From Hyperparameter Optimization to Finding the Best Treatment}
+In order to adapt the three hyperparameter optimization algorithms to the problem of finding the best treatment through experimentation, we must define what the experiments are. Both Sequential Halving and Hyperband run a series of rounds with a fixed per-round budget (line 4 in Algorithm \ref{sequential_halving} and lines 7-9 in Algorithm \ref{hyperband}). These rounds naturally map to experiments with fixed sample sizes. For Bayesian optimization we can run an experiment for each call of line 3 in Algorithm \ref{bayes_opt}. So each algorithm has the following interpretation when we fix a total budget for the number of units/sample size:
+\begin{itemize}
+\item {\it Bayesian Optimization}: Run a series of experiments that give all units the same treatment and adapts the treatment given. The practitioner chooses the sample size of the experiments (or equivalently, the number of experiments to run)
+\item {\it Sequential Halving}: Randomly choose treatments and run a series of experiments that adapt the number of units to assign to each treatment. The practitioner must choose the number of treatments.
+\item {\it Hyperband}: Run experiments in stages, varying the number of treatments to consider. At each stage adapt the number of units to assign to each treatment. The practitioner must choose how aggressively to eliminate treatments.
+\end{itemize}
+
+
+\section{Two Tree-Based Partition Algorithms}
+With the hyperparameter optimization algorithms in mind, we propose two algorithms (Algorithms \ref{seq_tree} and \ref{part_tree}) which attempt to blend configuration selection and evaluation, while taking advantage of the structure of randomized experiments. The idea builds off of Sequential Halving as follows: rather than fixing an initial set of treatments and performing configuration evaluation, we should use information learned about the treatment effect function to also perform configuration selection by replacing discarded treatments with new treatments closer to the remaining treatments. In such a way we can hopefully take advantage of any smoothness in the treatment effect as the treatment varies.
+
+Like Sequential Halving and Hyperband, Sequential Tree (Algorithm \ref{seq_tree}) proceeds in rounds with equal per-round budgets. In the first round, Sequential Tree takes a scatter-shot approach, querying the function once at uniformly random points (i.e. randomly assigning treatments to units) in order to learn about the objective. Then, it fits a decision tree with $m$ nodes to recursively partition the domain into $\calP$. At the end of the first round it restricts $\calP$ to the partition elements with predicted function values in the top $\frac{m}{\eta^2}$. In the remaining rounds, for each remaining set in $\calP$, the procedure queries the function at uniformly random points inside the set and partitions into into $\eta$ pieces using a decision tree, restricting to the top $\frac{|\calP|}{\eta^2}$ until there is only one set remaining. Essentially, the algorithm partitions the domain into $m$ elements, and then creates a finer and finer partition around points that appear optimal.
+
+\begin{algorithm}
+\scriptsize
+\caption{Sequential Tree}
 \label{seq_tree}
 \begin{algorithmic}[1]
 \Procedure{SequentialTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $m$}
@@ -139,13 +244,13 @@
 
 \end{algorithm}
 
-\subsection{PartitionTree}
+In Algorithm \ref{seq_tree} the practitioner must choose the number of elements in the initial partition, $m$. In the same vein as the choice of the number of treatments in Sequential Tree, this choice corresponds to a trade off between the amount we can explore the space by making finer partitions, and the amount of queries we have in any particular partition element. As we show empirically in Section \ref{sec:params}, this choice can have a large effect on the error measured in terms of the objective. Furthermore, if $m$ is set too large then the initial decision tree can over-fit, and areas of the domain which the algorithm suggests are good could be the result of noise. 
 
-\subsubsection{Algorithm}
 
-\begin{algorithm}[H]
+To address this, Algorithm \ref{part_tree} makes a minor tweak to Algorithm \ref{seq_tree}: instead of initially partitioning the space into $m$ pieces it partitions into $\eta^2$. Because $\eta^2 << m$, this leads to a much coarser initial partition and thus one that is less prone to over-fitting. Additionally, rather than use the decision tree's prediction to decide which sets in $\calP$ to keep, the algorithm trains and uses a separate random forest with $k$ trees to help combat over-fitting (there is no particular reason for a random forest, other than making the code simpler). We now turn to examining how the parameter choices affect performance.
+\begin{algorithm}
 \scriptsize
-\caption{PartitionTree}
+\caption{Partition Tree}
 \label{part_tree}
 \begin{algorithmic}[1]
 \Procedure{PartitionTree}{Box constrained space $\calX \subset \R^d$, budget $T$, $\eta$, $R$, $k$}
@@ -172,7 +277,63 @@
 \end{algorithmic}
 \end{algorithm}
 
+\subsection{Choosing Parameter Settings} \label{sec:params}
+As discussed in the previous section, for Algorithm \ref{seq_tree} the practitioner needs to choose $m$, the size of the initial partition. For Algorithm \ref{part_tree}, there is a choice of the number of rounds $R$, and the number of trees in the random forest $k$. In both Algorithms we must choose $\eta$ which, as in Hyperband, controls how aggressively the algorithm discards configurations. The number of trees $k$ in Algorithm \ref{part_tree} could ostensibly be set as large as the practitioner wants, and in our evaluations we set it to 10. In order to evaluate the effects of the other parameters we run 50 trials where we fix a budget of 50,000 samples and optimize the Branin function, a 2-dimensional function with 3 global minima that is used as a benchmark for Bayesian optimization\footnote{Details, and implementation, and a visualization of this function at \texttt{www.sfu.ca/~ssurjano/branin.html}} \cite{Snoek2012, Jones2001}. 
+
+Figures \ref{fig:argmax} and \ref{fig:error} show the results of these trials. We consider a number of criteria to evaluate the algorithms. First we consider the proportion of times that a true maximizer of the objective was contained inside of the final set, and the size of the maximum side length of that set. Since both algorithms return the midpoint of the set, these two values give an empirical indication of the probability that a true maximizer is contained in a $\|\cdot\|_\infty$ ball around the output of the algorithm. The top two panels of Figure \ref{fig:argmax} (a) and (b) show these two values for Sequential Tree and Partition Tree. We see that for $\eta = 2$, the proportion of final sets which contain a true maximizer remains around 75\% for Sequential Tree, although this corresponds with a larger final $\|\cdot\|_\infty$ ball. It is unclear if these values even matter, so we also consider the error as measured by the difference between the true max and the output of the algorithm, seen in the bottom panel of Figure \ref{fig:argmax} (a) and (b). Here we see two parallel and diverging trends between Algorithms \ref{seq_tree} and \ref{part_tree}. As we increase the number of elements in the initial partition or the number of rounds, which both create finer partitions, there are diminishing returns, and the error flattens out. However, Algorithm \ref{seq_tree} appears to perform better with a less aggressive setting of $\eta$, while Algorithm \ref{part_tree} benefits from a higher $\eta$.
+\begin{figure}
+\begin{subfigure}[t]{.45\textwidth}
+\centering
+\includegraphics[width=\textwidth, height=\textwidth]{seq_tree_arg_max.png}
+\subcaption{The choice of $\eta$ and the number of elements in the initial partition can have a large effect on the performance of Algorithm \ref{seq_tree}}
+\end{subfigure}\hfill
+\begin{subfigure}[t]{.45\textwidth}
+\centering
+  \includegraphics[width=\textwidth,  height=\textwidth]{part_tree_arg_max.png}
+\subcaption{Increasing the number of rounds has a diminishing effect on the performance of Algorithm \ref{part_tree}, and more aggressive settings of $\eta$ appear to perform better}
+\end{subfigure}
+\caption{For different values of the size of the initial partition in Sequential Tree (a) and number of rounds in Partition Tree with $k=10$, (b), and different values of $\eta$, 50 trials were run on the Branin function with a budget of 10,000 samples.}
+\label{fig:argmax}
+\end{figure}
+
+We inspect this difference by considering the difference between the true max and the midpoint of the set each algorithm predicts is the best at each round. Looking at Figure \ref{fig:error} (a) we see that for $\eta=2,3,4$, at each round Sequential Tree performs about the same, but $\eta=2$ does the most number of rounds. Perhaps this shows that being aggressive does not help at each round, so the least aggressive setting wins out because it does more rounds. In contrast, Figure \ref{fig:error} (b) shows that more aggressive settings of $\eta$ in Partition Tree actually result in lower error at each round. Since in this algorithm the choice of $\eta$ does not dictate the number of rounds, larger settings clearly win out. For future work it would be interesting to see if a tweak to Partition Tree where $\eta$ starts aggressive but then becomes less aggressive would work. Perhaps this would lead the algorithm to get past the apparent error floor seen in Figure \ref{fig:error} (b).
+
+\begin{figure}
+
+  \begin{subfigure}[t]{.45\textwidth}
+    \includegraphics[width=\textwidth]{seq_tree_error_per_round.png}
+    \subcaption{With $\eta=2$ Sequential Tree is less aggressive and explores more of the space. Empirically this gives better performance.}
+  \end{subfigure} \hfill
+  \begin{subfigure}[t]{.45\textwidth}
+    \includegraphics[width=\textwidth]{part_tree_error_per_round.png}
+    \subcaption{For all settings of $\eta$, Partition Tree reaches an error floor with successive rounds.}
+  \end{subfigure}
+\caption{We run the same trial as in Figure \ref{fig:argmax} and inspect how the error in the objective behaves after each round}
+\label{fig:error}
+\end{figure}
 \section{Empirical Evaluation}
+We evaluate and compare Algorithms 1-5 by running trials on several functions and at different noise levels. The functions that we consider are the Branin, Hartmann 3d and Hartmann 6d functions, standard test functions in Bayesian optimization\footnote{Details, and implementation, and a visualization of this function at \texttt{www.sfu.ca/~ssurjano/branin.html}, \texttt{www.sfu.ca/~ssurjano/branin.html}, \texttt{www.sfu.ca/~ssurjano/hart3.html}, and \texttt{www.sfu.ca/~ssurjano/hart6.html}, respectively} \cite{Hoffman2011}. These functions are continuous, non-convex, multimodal, evaluated in a box, and two, three, and six dimensional, respectively. For each function we consider queries with additive Gaussian noise with standard deviation $\frac{1}{2}$ and $5$. For each algorithm we run a series of trials where we fix the budget on samples and run the algorithm. The settings of the algorithm parameters, and number of trials are as follows:
+\begin{itemize}
+\item {\it Bayesian Optimization}: Given a fixed budget, we choose the number of samples per iteration so that the number of iterations (i.e. number of experiments) matched the number of rounds Hyperband uses at that budget. As a learning exercise, we use our own implementation of Gaussian processes and Bayesian Optimization\footnote{Code for Gaussian processes can be found at \texttt{github.com/ebenmichael/gaussianProcess} and code for all optimization algorithms can be found at \texttt{github.com/ebenmichael/bandit\_experiments}}. Due to time constraints, we use a squared exponential kernel with hyperparameters chosen to maximize the marginal likelihood and expected improvement as the acquisition function. We also use genetic optimization software to maximize the mean function and the acquisition function \cite{Mebane2011}. These choices are not the choices that state-of-the-art Bayesian optimization packages make, so presumably the performance we see is worse than using one of those packages. We run 10 trials per budget level. Additionally, due to the time constraint and the time Bayesian optimization takes in higher dimensions, we were unable to get a result for the Hartmann 6d function with high noise.
+\item {\it Sequential Halving}: For a fixed budget $T$, we choose the maximal number of treatments possible, i.e. we choose $n$ such that the number of times each treatment is pulled in the first round satisfies $\left\lfloor \frac{T}{n \lceil \log_2 n \rceil}\right\rfloor = 1$. We run 100 trials per budget level.
+\item {\it Hyperband}: We choose $\eta=4$. We run 100 trails per budget level.
+\item {\it Sequential Tree}: For a fixed budget $T$ we choose the number of elements in the initial partition to be $\lfloor\frac{T}{20}\rfloor$ and from the empirical result in the previous section choose $\eta=2$. We run 50 trials per budget level.
+\item {\it Partition Tree}: For budget $T$ we choose the number of rounds to be $\lfloor \sqrt{\frac{T}{40}} \rfloor$. We also add an exit condition if the total volume of the remaining sets becomes smaller than the square root of machine precision. In practice most trials exited before reaching the maximum number of rounds, which means that we choose the rounds to scale too quickly with $T$; finding the right value of the scaling has proven a challenge, and perhaps underlies the results we see. We run 50 trials per budget level.
+\end{itemize}
+Figure \ref{fig:emp_results} shows the results of these trials. There are a number of interesting things to notice. 
+\begin{itemize}
+\item Across all settings, Sequential Halving with maximal $n$ performs the same or better than Hyperband. Perhaps this is not surprising. Hyperband was designed for the non-stochastic setting of hyperparameter optimization. Since we do not know how the loss scales with the number of resources, Hyperband tries many different values of $n$. In the noisy Gaussian setting, the basic Chernoff bound tells us that the difference between the empirical mean and the true mean scales like $\frac{1}{\sqrt t}$ with high probability. This scaling might imply that the gain in trying more configurations is greater than the loss in sampling each configuration less.
+\item Bayesian Optimization performs quite poorly. Even for the largest budget in the trial, Hyperband has only 38 rounds. This means that Bayesian optimization could only see 38 different treatments, so it is no surprise that it performed poorly. One could increase the number of iterations that Bayesian optimization uses while decreasing the number of samples per iteration; however, in the experimental setting this corresponds to running many small experiments, which is usually much more costly than running a single large experiment.
+\item Sequential Tree performs well in the low noise setting. The algorithm particularly outperforms Sequential Halving in the low to moderate budget setting. However; once the noise increases Sequential Tree has an order of magnitude worse performance. If we know or can estimate that the noise is small, then perhaps Sequential Tree would be a good choice.
+\item Partition Tree is robust to noise. In Section 4 we describe that robustness to over-fitting was the major motivation of Partition Tree, and empirically we see that borne out. In fact, Partition Tree performs as good or better than the other algorithms in almost all settings. However, the algorithm clearly does not take advantage of increased budget, as in most cases empirically the rate is nearly flat. In future work we would like to explore if any changes to the algorithm can fix this problem and lead to a superior algorithm. 
+\item The two bandit-based random search algorithms have better rates of convergence than the two tree-based partitioning algorithms. Noting that the slope $a$ of a log-log plot corresponds to $y = x^a$, we can visually see the difference in slopes. To get a more precise look at this we regress the log of the objective error on the log of the budget, and place the results in Table \ref{table:rates}. Both Figure \ref{fig:emp_results} and Table \ref{table:rates} show the curse of dimensionality: as the dimension grows, the rates flatten out considerably. The table also confirms that the bandit-based algorithms have superior rates empirically.
+\end{itemize}
+
+\begin{figure}
+  \includegraphics[width=\textwidth]{emp_results.png}
+    \caption{We run each algorithm for each combination of function and noise level and budget several times in order to asses their performance in the test cases}
+    \label{fig:emp_results}
+\end{figure}
 
 \begin{table}[ht]
 \centering
@@ -181,31 +342,33 @@
 Algorithm & \multicolumn{2}{c}{Branin} & \multicolumn{2}{c}{Hartmann 3D} & \multicolumn{2}{c}{Hartmann 6D}\\
 & $\sigma=\frac{1}{2}$ & $\sigma = 5$ & $\sigma=\frac{1}{2}$ &  $\sigma = 5$ &  $\sigma=\frac{1}{2}$ &  $\sigma = 5$\\
   \hline
-Bayesian Optimization & -1.65 & -0.05 & -0.19 & -0.06 & 0.02 & - \\ 
 Hyperband & -0.75 & -0.56 & -0.57 & -0.45 & -0.14 & -0.18 \\ 
-SequentialHalving & -0.83 & -0.65 & -0.62 & -0.54 & -0.12 & -0.18 \\ 
-PartitionTree & -0.19 & -0.31 & -0.12 & -0.16 & -0.02 & -0.03 \\ 
-SequentialTree & -0.28 & -0.38 & -0.29 & -0.48 & -0.08 & -0.10 \\ 
+Sequential Halving & -0.83 & -0.65 & -0.62 & -0.54 & -0.12 & -0.18 \\ 
+Partition Tree & -0.19 & -0.31 & -0.12 & -0.16 & -0.02 & -0.03 \\ 
+Sequential Tree & -0.28 & -0.38 & -0.29 & -0.48 & -0.08 & -0.10 \\ 
    \hline
 \end{tabular}
 \label{emp_rates}
-\caption{Empirical Rates}
+\caption{We estimate the empirical rate of convergence for each algorithm (not including Bayesian optimization) on each problem by regressing the log error on the log budget}
+\label{table:rates}
 \end{table}
 
-\section{Conclusion}
+\section{Conclusion and Future Directions}
+The results from the previous section are promising in a few ways. First, Sequential Halving works quite well in higher budget settings and it has the benefit of being simple to understand and implement. Second, although Sequential Tree and Partition Tree have empirically worse rates, and Sequential Tree empirically does poorly in high noise scenarios, at least one of these two algorithms gives performance an order of magnitude better than the other algorithms in all low budget settings. Equivalently, with over an order of magnitude lower budgets, these algorithms have the same performance as Sequential Halving. For future work, we would like to explore further variants of these algorithms, or algorithms with a similar flavor which incorporate configuration selection and evaluation in a different way; for example, one possible algorithm could be to sample new treatments uniformly over a small neighborhood of the treatments which empirically do well.
 
+For more future work we would also like to consider a different interpretation of the problem of finding the best treatment. We have several times noted that a single large experiment is possibly cheaper than many small experiments; rather than fix the budget on experimental units/samples, we could fix the number of samples per experiment and put a budget on the number of experiments. There is work in best-arm identification in multi-armed bandits under batch pulls that may prove fruitful to explore \cite{Jun2016}.
+
+\newpage
+\bibliography{/home/ebenmichael/Documents/berkeley/research/citations/library}
+\bibliographystyle{ieeetr}
 
 % Acknowledgements should go at the end, before appendices and references
 
-\acks{We would like to acknowledge }
+
 
 
 \newpage
 
-\appendix
-\section*{Appendix A.}
 
-\vskip 0.2in
-\bibliography{sample}
 
 \end{document}
